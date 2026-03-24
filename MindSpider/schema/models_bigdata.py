@@ -1,18 +1,19 @@
 """
-舆情大数据聚合主表ORM模型（自动由原tables.sql结构同步生成，对应大表批量搜索与内容入库）
+Public-opinion big-data aggregate primary table ORM models
+(auto-synced from the original tables.sql structure, used for large-scale search and content ingestion)
 
-数据模型定义位置：
-- MindSpider/DeepSentimentCrawling/MediaCrawler/schema/tables.sql  # 主表结构来源文件
-- 本模块（自动映射SQL表，适配MySQL/PostgreSQL，推荐手动完善注释、唯一/索引补充）
-- MindSpider/schema/models_sa.py  # Base 定义来源
+Data model definition locations:
+- MindSpider/DeepSentimentCrawling/MediaCrawler/schema/tables.sql  # Source of primary table structures
+- This module (auto-mapped SQL tables for MySQL/PostgreSQL; comments and unique/index constraints can be manually refined)
+- MindSpider/schema/models_sa.py  # Base definition source
 
-本模块以MindSpider\DeepSentimentCrawling\MediaCrawler\database\models.py为准
+This module follows MindSpider\DeepSentimentCrawling\MediaCrawler\database\models.py as the reference.
 """
 
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String, BigInteger, Text, ForeignKey
 
-# 使用 models_sa 中的 Base，确保所有表在同一个 metadata 中，外键引用可以正常工作
+# Use Base from models_sa so all tables share one metadata and foreign-key references work correctly
 from models_sa import Base
 
 class BilibiliVideo(Base):

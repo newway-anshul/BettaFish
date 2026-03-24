@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BroadTopicExtraction模块 - 话题提取器
-基于DeepSeek直接提取关键词和生成新闻总结
+BroadTopicExtraction module - Topic extractor
+Uses DeepSeek to extract keywords and generate news summaries
 """
 
 import sys
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 from openai import OpenAI
 
-# 添加项目根目录到路径
+# Add project root to import path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
@@ -20,13 +20,13 @@ try:
     import config
     from config import settings
 except ImportError:
-    raise ImportError("无法导入settings.py配置文件")
+    raise ImportError("Failed to import settings.py configuration")
 
 class TopicExtractor:
-    """话题提取器"""
+    """Topic extractor."""
 
     def __init__(self):
-        """初始化话题提取器"""
+        """Initialize topic extractor."""
         self.client = OpenAI(
             api_key=settings.MINDSPIDER_API_KEY,
             base_url=settings.MINDSPIDER_BASE_URL
@@ -35,59 +35,59 @@ class TopicExtractor:
     
     def extract_keywords_and_summary(self, news_list: List[Dict], max_keywords: int = 100) -> Tuple[List[str], str]:
         """
-        从新闻列表中提取关键词和生成总结
+        Extract keywords and generate a summary from news list.
         
         Args:
-            news_list: 新闻列表
-            max_keywords: 最大关键词数量
+            news_list: News list
+            max_keywords: Maximum keyword count
             
         Returns:
-            (关键词列表, 新闻分析总结)
+            (Keyword list, news analysis summary)
         """
         if not news_list:
-            return [], "今日暂无热点新闻"
+            return [], "No trending news available today"
         
-        # 构建新闻摘要文本
+        # Build news summary text
         news_text = self._build_news_summary(news_list)
         
-        # 构建提示词
+        # Build prompt
         prompt = self._build_analysis_prompt(news_text, max_keywords)
         
         try:
-            # 调用DeepSeek API
+            # Call DeepSeek API
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "你是一个专业的新闻分析师，擅长从热点新闻中提取关键词和撰写分析总结。"},
+                    {"role": "system", "content": "You are a professional news analyst skilled at extracting keywords and writing concise analysis summaries from trending news."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=1500,
                 temperature=0.3
             )
             
-            # 解析返回结果
+            # Parse returned result
             result_text = response.choices[0].message.content
             keywords, summary = self._parse_analysis_result(result_text)
             
-            print(f"成功提取 {len(keywords)} 个关键词并生成新闻总结")
+            print(f"Successfully extracted {len(keywords)} keywords and generated a summary")
             return keywords[:max_keywords], summary
             
         except Exception as e:
-            print(f"话题提取失败: {e}")
-            # 返回简单的fallback结果
+            print(f"Topic extraction failed: {e}")
+            # Return simple fallback result
             fallback_keywords = self._extract_simple_keywords(news_list)
-            fallback_summary = f"今日共收集到 {len(news_list)} 条热点新闻，涵盖多个平台的热门话题。"
+            fallback_summary = f"Collected {len(news_list)} trending news items today, covering hot topics across multiple platforms."
             return fallback_keywords[:max_keywords], fallback_summary
     
     def _build_news_summary(self, news_list: List[Dict]) -> str:
-        """构建新闻摘要文本"""
+        """Build news summary text."""
         news_items = []
         
         for i, news in enumerate(news_list, 1):
-            title = news.get('title', '无标题')
-            source = news.get('source_platform', news.get('source', '未知'))
+            title = news.get('title', 'Untitled')
+            source = news.get('source_platform', news.get('source', 'Unknown'))
             
-            # 清理标题中的特殊字符
+            # Clean special characters in title
             title = re.sub(r'[#@]', '', title).strip()
             
             news_items.append(f"{i}. 【{source}】{title}")
@@ -95,83 +95,83 @@ class TopicExtractor:
         return "\n".join(news_items)
     
     def _build_analysis_prompt(self, news_text: str, max_keywords: int) -> str:
-        """构建分析提示词"""
+        """Build analysis prompt."""
         news_count = len(news_text.split('\n'))
         
         prompt = f"""
-请分析以下{news_count}条今日热点新闻，完成两个任务：
+Please analyze the following {news_count} trending news items from today and complete two tasks:
 
-新闻列表：
+News list:
 {news_text}
 
-任务1：提取关键词（最多{max_keywords}个）
-- 提取能代表今日热点话题的关键词
-- 关键词应该适合用于社交媒体平台搜索
-- 优先选择热度高、讨论量大的话题
-- 避免过于宽泛或过于具体的词汇
+Task 1: Extract keywords (up to {max_keywords})
+- Extract keywords that best represent today's trending topics
+- Keywords should be suitable for social media platform searches
+- Prioritize topics with high popularity and discussion volume
+- Avoid terms that are too broad or overly specific
 
-任务2：撰写新闻分析总结（150-300字）
-- 简要概括今日热点新闻的主要内容
-- 指出当前社会关注的重点话题方向
-- 分析这些热点反映的社会现象或趋势
-- 语言简洁明了，客观中性
+Task 2: Write a news analysis summary (150-300 words)
+- Briefly summarize the main content of today's trending news
+- Highlight key topic directions currently drawing social attention
+- Analyze the social phenomena or trends reflected by these topics
+- Use concise, clear, objective, and neutral language
 
-请严格按照以下JSON格式输出：
+Strictly output in the following JSON format:
 ```json
 {{
-  "keywords": ["关键词1", "关键词2", "关键词3"],
-  "summary": "今日新闻分析总结内容..."
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "summary": "Today\'s news analysis summary content..."
 }}
 ```
 
-请直接输出JSON格式的结果，不要包含其他文字说明。
+Output JSON only. Do not include extra explanatory text.
 """
         return prompt
     
     def _parse_analysis_result(self, result_text: str) -> Tuple[List[str], str]:
-        """解析分析结果"""
+        """Parse analysis result."""
         try:
-            # 尝试提取JSON部分
+            # Try extracting JSON block
             json_match = re.search(r'```json\s*(.*?)\s*```', result_text, re.DOTALL)
             if json_match:
                 json_text = json_match.group(1)
             else:
-                # 如果没有代码块，尝试直接解析
+                # If no code block exists, try parsing raw text
                 json_text = result_text.strip()
             
-            # 解析JSON
+            # Parse JSON
             data = json.loads(json_text)
             
             keywords = data.get('keywords', [])
             summary = data.get('summary', '')
             
-            # 验证和清理关键词
+            # Validate and clean keywords
             clean_keywords = []
             for keyword in keywords:
                 keyword = str(keyword).strip()
                 if keyword and len(keyword) > 1 and keyword not in clean_keywords:
                     clean_keywords.append(keyword)
             
-            # 验证总结
+            # Validate summary
             if not summary or len(summary.strip()) < 10:
-                summary = "今日热点新闻涵盖多个领域，反映了当前社会的多元化关注点。"
+                summary = "Today\'s trending news covers multiple domains and reflects diverse social attention points."
             
             return clean_keywords, summary.strip()
             
         except json.JSONDecodeError as e:
-            print(f"解析JSON失败: {e}")
-            print(f"原始返回: {result_text}")
+            print(f"JSON parsing failed: {e}")
+            print(f"Raw response: {result_text}")
             
-            # 尝试手动解析
+            # Try manual parsing
             return self._manual_parse_result(result_text)
         
         except Exception as e:
-            print(f"处理分析结果失败: {e}")
-            return [], "分析结果处理失败，请稍后重试。"
+            print(f"Failed to process analysis result: {e}")
+            return [], "Failed to process analysis result. Please try again later."
     
     def _manual_parse_result(self, text: str) -> Tuple[List[str], str]:
-        """手动解析结果（当JSON解析失败时的后备方案）"""
-        print("尝试手动解析结果...")
+        """Manually parse result (fallback when JSON parsing fails)."""
+        print("Trying manual parsing...")
         
         keywords = []
         summary = ""
@@ -182,60 +182,60 @@ class TopicExtractor:
             line = line.strip()
             if not line:
                 continue
-            
-            # 寻找关键词
-            if '关键词' in line or 'keywords' in line.lower():
-                # 提取关键词
-                keyword_match = re.findall(r'[""](.*?)["""]', line)
+
+            # Find keywords
+            if 'keywords' in line.lower():
+                # Extract quoted keywords
+                keyword_match = re.findall(r'["“](.*?)["”]', line)
                 if keyword_match:
                     keywords.extend(keyword_match)
                 else:
-                    # 尝试其他分隔符
+                    # Try alternative separators
                     parts = re.split(r'[,，、]', line)
                     for part in parts:
-                        clean_part = re.sub(r'[关键词：:keywords\[\]"]', '', part).strip()
+                        clean_part = re.sub(r'[：:keywords\[\]"]', '', part, flags=re.IGNORECASE).strip()
                         if clean_part and len(clean_part) > 1:
                             keywords.append(clean_part)
-            
-            # 寻找总结
-            elif '总结' in line or '分析' in line or 'summary' in line.lower():
+
+            # Find summary
+            elif 'summary' in line.lower() or 'analysis' in line.lower():
                 if '：' in line or ':' in line:
                     summary = line.split('：')[-1].split(':')[-1].strip()
-            
-            # 如果这一行看起来像总结内容
-            elif len(line) > 50 and ('今日' in line or '热点' in line or '新闻' in line):
+
+            # If this line looks like summary content
+            elif len(line) > 50 and ('today' in line.lower() or 'trending' in line.lower() or 'news' in line.lower()):
                 if not summary:
                     summary = line
-        
-        # 清理关键词
+
+        # Clean keywords
         clean_keywords = []
         for keyword in keywords:
             keyword = keyword.strip()
             if keyword and len(keyword) > 1 and keyword not in clean_keywords:
                 clean_keywords.append(keyword)
         
-        # 如果没有找到总结，生成一个简单的
+        # If summary is not found, provide a simple one
         if not summary:
-            summary = "今日热点新闻内容丰富，涵盖了社会各个层面的关注点。"
+            summary = "Today\'s trending news is diverse and covers social attention points across many domains."
         
         return clean_keywords[:max_keywords], summary
     
     def _extract_simple_keywords(self, news_list: List[Dict]) -> List[str]:
-        """简单关键词提取（fallback方案）"""
+        """Simple keyword extraction (fallback method)."""
         keywords = []
         
         for news in news_list:
             title = news.get('title', '')
             
-            # 简单的关键词提取
-            # 移除常见的无意义词汇
+            # Simple keyword extraction
+            # Remove common low-information words
             title_clean = re.sub(r'[#@【】\[\]()（）]', ' ', title)
             words = title_clean.split()
             
             for word in words:
                 word = word.strip()
                 if (len(word) > 1 and 
-                    word not in ['的', '了', '在', '和', '与', '或', '但', '是', '有', '被', '将', '已', '正在'] and
+                    word not in ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'in', 'on', 'at'] and
                     word not in keywords):
                     keywords.append(word)
         
@@ -243,47 +243,47 @@ class TopicExtractor:
     
     def get_search_keywords(self, keywords: List[str], limit: int = 10) -> List[str]:
         """
-        获取用于搜索的关键词
+        Get keywords suitable for search.
         
         Args:
-            keywords: 关键词列表
-            limit: 限制数量
+            keywords: Keyword list
+            limit: Maximum number of returned keywords
             
         Returns:
-            适合搜索的关键词列表
+            Search-ready keyword list
         """
-        # 过滤和优化关键词
+        # Filter and optimize keywords
         search_keywords = []
         
         for keyword in keywords:
             keyword = str(keyword).strip()
             
-            # 过滤条件
+            # Filtering conditions
             if (len(keyword) > 1 and 
-                len(keyword) < 20 and  # 不能太长
+                len(keyword) < 20 and  # Not too long
                 keyword not in search_keywords and
-                not keyword.isdigit() and  # 不是纯数字
-                not re.match(r'^[a-zA-Z]+$', keyword)):  # 不是纯英文（除非是专有名词）
+                not keyword.isdigit() and  # Not pure numbers
+                not re.match(r'^[a-zA-Z]+$', keyword)):  # Not pure English (unless proper nouns)
                 
                 search_keywords.append(keyword)
         
         return search_keywords[:limit]
 
 if __name__ == "__main__":
-    # 测试话题提取器
+    # Test topic extractor
     extractor = TopicExtractor()
     
-    # 模拟新闻数据
+    # Simulated news data
     test_news = [
-        {"title": "AI技术发展迅速", "source_platform": "科技新闻"},
-        {"title": "股市行情分析", "source_platform": "财经新闻"},
-        {"title": "明星最新动态", "source_platform": "娱乐新闻"}
+        {"title": "AI technology is developing rapidly", "source_platform": "Technology News"},
+        {"title": "Stock market trend analysis", "source_platform": "Finance News"},
+        {"title": "Latest celebrity updates", "source_platform": "Entertainment News"}
     ]
     
     keywords, summary = extractor.extract_keywords_and_summary(test_news)
     
-    print(f"提取的关键词: {keywords}")
-    print(f"新闻总结: {summary}")
+    print(f"Extracted keywords: {keywords}")
+    print(f"News summary: {summary}")
     
     search_keywords = extractor.get_search_keywords(keywords)
-    print(f"搜索关键词: {search_keywords}")
+    print(f"Search keywords: {search_keywords}")

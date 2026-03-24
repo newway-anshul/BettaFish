@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BroadTopicExtraction模块 - 数据库管理器
-只负责新闻数据和话题分析的存储和查询
+BroadTopicExtraction module - Database manager
+Responsible only for news data and topic analysis storage/query operations
 """
 
 import sys
@@ -14,28 +14,28 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from loguru import logger
 
-# 添加项目根目录到路径
+# Add project root to import path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 try:
     import config
 except ImportError:
-    raise ImportError("无法导入config.py配置文件")
+    raise ImportError("Failed to import config.py")
 
 from config import settings
 
 
 class DatabaseManager:
-    """数据库管理器"""
+    """Database manager."""
 
     def __init__(self):
-        """初始化数据库管理器"""
+        """Initialize database manager."""
         self.engine: Engine = None
         self.connect()
 
     def connect(self):
-        """连接数据库"""
+        """Connect to database."""
         try:
             dialect = (settings.DB_DIALECT or "mysql").lower()
             if dialect in ("postgresql", "postgres"):
@@ -43,26 +43,26 @@ class DatabaseManager:
             else:
                 url = f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
             self.engine = create_engine(url, future=True)
-            logger.info(f"成功连接到数据库: {settings.DB_NAME}")
+            logger.info(f"Successfully connected to database: {settings.DB_NAME}")
         except ModuleNotFoundError as e:
             missing: str = str(e)
             if "psycopg" in missing:
                 logger.error(
-                    "数据库连接失败: 未安装PostgreSQL驱动 psycopg。请安装: psycopg[binary]。参考指令：uv pip install psycopg[binary]")
+                    "Database connection failed: PostgreSQL driver psycopg is not installed. Install: psycopg[binary]. Example: uv pip install psycopg[binary]")
             elif "pymysql" in missing:
-                logger.error("数据库连接失败: 未安装MySQL驱动 pymysql。请安装: pymysql。参考指令：uv pip install pymysql")
+                logger.error("Database connection failed: MySQL driver pymysql is not installed. Install: pymysql. Example: uv pip install pymysql")
             else:
-                logger.error(f"数据库连接失败(缺少驱动): {e}")
+                logger.error(f"Database connection failed (missing driver): {e}")
             raise
         except Exception as e:
-            logger.exception(f"数据库连接失败: {e}")
+            logger.exception(f"Database connection failed: {e}")
             raise
 
     def close(self):
-        """关闭数据库连接"""
+        """Close database connection."""
         if self.engine:
             self.engine.dispose()
-            logger.info("数据库连接已关闭")
+            logger.info("Database connection closed")
 
     def __enter__(self):
         return self
@@ -70,18 +70,18 @@ class DatabaseManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    # ==================== 新闻数据操作 ====================
+    # ==================== News Data Operations ====================
 
     def save_daily_news(self, news_data: List[Dict], crawl_date: date = None) -> int:
         """
-        保存每日新闻数据，如果当天已有数据则覆盖
+        Save daily news data. Existing data on the same day will be replaced.
 
         Args:
-            news_data: 新闻数据列表
-            crawl_date: 爬取日期，默认为今天
+            news_data: News data list
+            crawl_date: Crawl date, default is today
 
         Returns:
-            保存的新闻数量
+            Number of saved news records
         """
         if not crawl_date:
             crawl_date = date.today()
@@ -90,20 +90,20 @@ class DatabaseManager:
 
         try:
             saved_count = 0
-            # 先独立事务执行删除，防止后续插入失败导致无法清理
+            # Delete in an independent transaction first, so stale records are cleaned even if later inserts fail
             with self.engine.begin() as conn:
                 deleted = conn.execute(text("DELETE FROM daily_news WHERE crawl_date = :d"), {"d": crawl_date}).rowcount
                 if deleted and deleted > 0:
-                    logger.info(f"覆盖模式：删除了当天已有的 {deleted} 条新闻记录")
+                    logger.info(f"Replace mode: deleted {deleted} existing news records for the day")
 
-            # 逐条插入，单条失败不影响后续（每条独立事务）
+            # Insert row by row. A single-row failure should not block the rest.
             for news_item in news_data:
                 try:
-                    # news_item.get('id') 已经是完整的 news_id（格式：source_item_id）
-                    # 为了支持同一条新闻在不同日期出现，将 crawl_date 加入到 news_id 中
+                    # news_item.get('id') is already a full news_id (format: source_item_id)
+                    # To support the same news on different dates, include crawl_date in news_id
                     base_news_id = news_item.get(
                         'id') or f"{news_item.get('source', 'unknown')}_rank_{news_item.get('rank', 0)}"
-                    # 将日期格式化为字符串并加入到 news_id 中，确保全局唯一性
+                    # Append formatted date to news_id for global uniqueness
                     news_id = f"{base_news_id}_{crawl_date.strftime('%Y%m%d')}"
 
                     title_val = (news_item.get("title", "") or "")
@@ -132,23 +132,23 @@ class DatabaseManager:
                         )
                     saved_count += 1
                 except Exception as e:
-                    logger.exception(f"保存单条新闻失败: {e}")
+                    logger.exception(f"Failed to save a single news record: {e}")
                     continue
-            logger.info(f"成功保存 {saved_count} 条新闻记录")
+            logger.info(f"Successfully saved {saved_count} news records")
             return saved_count
         except Exception as e:
-            logger.exception(f"保存新闻数据失败: {e}")
+            logger.exception(f"Failed to save daily news data: {e}")
             return 0
 
     def get_daily_news(self, crawl_date: date = None) -> List[Dict]:
         """
-        获取每日新闻数据
+        Get daily news data.
 
         Args:
-            crawl_date: 爬取日期，默认为今天
+            crawl_date: Crawl date, default is today
 
         Returns:
-            新闻列表
+            News list
         """
         if not crawl_date:
             crawl_date = date.today()
@@ -161,19 +161,19 @@ class DatabaseManager:
             rows = result.mappings().all()
         return rows
 
-    # ==================== 话题数据操作 ====================
+    # ==================== Topic Data Operations ====================
 
     def save_daily_topics(self, keywords: List[str], summary: str, extract_date: date = None) -> bool:
         """
-        保存每日话题分析
+        Save daily topic analysis.
 
         Args:
-            keywords: 话题关键词列表
-            summary: 新闻分析总结
-            extract_date: 提取日期，默认为今天
+            keywords: Topic keyword list
+            summary: News analysis summary
+            extract_date: Extraction date, default is today
 
         Returns:
-            是否保存成功
+            Whether save succeeded
         """
         if not extract_date:
             extract_date = date.today()
@@ -182,7 +182,7 @@ class DatabaseManager:
 
         try:
             keywords_json = json.dumps(keywords, ensure_ascii=False)
-            # 为了支持外键引用，topic_id 需要全局唯一，所以将日期加入到 topic_id 中
+            # For foreign-key references, topic_id should be globally unique; include date in topic_id
             topic_id = f"summary_{extract_date.strftime('%Y%m%d')}"
 
             with self.engine.begin() as conn:
@@ -196,32 +196,32 @@ class DatabaseManager:
                             "UPDATE daily_topics SET keywords = :k, topic_description = :s, add_ts = :ts, last_modify_ts = :lmt, topic_name = :tn WHERE extract_date = :d AND topic_id = :tid"
                         ),
                         {"k": keywords_json, "s": summary, "ts": current_timestamp, "lmt": current_timestamp,
-                         "d": extract_date, "tid": topic_id, "tn": "每日新闻分析"},
+                         "d": extract_date, "tid": topic_id, "tn": "Daily News Analysis"},
                     )
-                    logger.info(f"更新了 {extract_date} 的话题分析")
+                    logger.info(f"Updated topic analysis for {extract_date}")
                 else:
                     conn.execute(
                         text(
                             "INSERT INTO daily_topics (extract_date, topic_id, topic_name, keywords, topic_description, add_ts, last_modify_ts) VALUES (:d, :tid, :tn, :k, :s, :ts, :lmt)"
                         ),
-                        {"d": extract_date, "tid": topic_id, "tn": "每日新闻分析", "k": keywords_json, "s": summary,
+                        {"d": extract_date, "tid": topic_id, "tn": "Daily News Analysis", "k": keywords_json, "s": summary,
                          "ts": current_timestamp, "lmt": current_timestamp},
                     )
-                    logger.info(f"保存了 {extract_date} 的话题分析")
+                    logger.info(f"Saved topic analysis for {extract_date}")
             return True
         except Exception as e:
-            logger.exception(f"保存话题分析失败: {e}")
+            logger.exception(f"Failed to save topic analysis: {e}")
             return False
 
     def get_daily_topics(self, extract_date: date = None) -> Optional[Dict]:
         """
-        获取每日话题分析
+        Get daily topic analysis.
 
         Args:
-            extract_date: 提取日期，默认为今天
+            extract_date: Extraction date, default is today
 
         Returns:
-            话题分析数据，如果不存在返回None
+            Topic analysis data, or None if not available
         """
         if not extract_date:
             extract_date = date.today()
@@ -231,23 +231,23 @@ class DatabaseManager:
                 result = conn.execute(text("SELECT * FROM daily_topics WHERE extract_date = :d"),
                                       {"d": extract_date}).mappings().first()
                 if result:
-                    result = dict(result)  # 转为可变dict以支持item赋值
+                    result = dict(result)  # Convert to mutable dict for key assignment
                     result["keywords"] = json.loads(result["keywords"]) if result.get("keywords") else []
                     return result
                 return None
         except Exception as e:
-            logger.exception(f"获取话题分析失败: {e}")
+            logger.exception(f"Failed to get topic analysis: {e}")
             return None
 
     def get_recent_topics(self, days: int = 7) -> List[Dict]:
         """
-        获取最近几天的话题分析
+        Get recent topic analysis records.
 
         Args:
-            days: 天数
+            days: Number of days
 
         Returns:
-            话题分析列表
+            Topic analysis list
         """
         try:
             start_date = date.today() - timedelta(days=days)
@@ -266,13 +266,13 @@ class DatabaseManager:
                     r["keywords"] = json.loads(r["keywords"]) if r.get("keywords") else []
                 return results
         except Exception as e:
-            logger.exception(f"获取最近话题分析失败: {e}")
+            logger.exception(f"Failed to get recent topic analysis: {e}")
             return []
 
-    # ==================== 统计查询 ====================
+    # ==================== Statistics Queries ====================
 
     def get_summary_stats(self, days: int = 7) -> Dict:
-        """获取统计摘要"""
+        """Get summary statistics."""
         try:
             start_date = date.today() - timedelta(days=days)
             with self.engine.connect() as conn:
@@ -301,22 +301,22 @@ class DatabaseManager:
                 ).all()
                 return {"news_stats": news_stats, "topics_stats": topics_stats}
         except Exception as e:
-            logger.exception(f"获取统计摘要失败: {e}")
+            logger.exception(f"Failed to get summary statistics: {e}")
             return {"news_stats": [], "topics_stats": []}
 
 
 if __name__ == "__main__":
-    # 测试数据库管理器
+    # Test database manager
     with DatabaseManager() as db:
-        # 测试获取新闻
+        # Test fetching news
         news = db.get_daily_news()
-        logger.info(f"今日新闻数量: {len(news)}")
+        logger.info(f"Today's news count: {len(news)}")
 
-        # 测试获取话题
+        # Test fetching topics
         topics = db.get_daily_topics()
         if topics:
-            logger.info(f"今日话题关键词: {topics['keywords']}")
+            logger.info(f"Today's topic keywords: {topics['keywords']}")
         else:
-            logger.info("今日暂无话题分析")
+            logger.info("No topic analysis for today")
 
-        logger.info("简化数据库管理器测试完成！")
+        logger.info("Simplified database manager test completed")

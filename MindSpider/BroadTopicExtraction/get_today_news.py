@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BroadTopicExtraction模块 - 新闻获取和收集
-整合新闻API调用和数据库存储功能
+BroadTopicExtraction module - News fetch and collection
+Combines news API calls with database storage
 """
 
 import sys
@@ -14,44 +14,44 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from loguru import logger
 
-# 添加项目根目录到路径
+# Add project root to import path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 try:
     from BroadTopicExtraction.database_manager import DatabaseManager
 except ImportError as e:
-    raise ImportError(f"导入模块失败: {e}")
+    raise ImportError(f"Module import failed: {e}")
 
-# 新闻API基础URL
+# News API base URL
 BASE_URL = "https://newsnow.busiyi.world"
 
-# 新闻源中文名称映射
+# Display names for news sources
 SOURCE_NAMES = {
-    "weibo": "微博热搜",
-    "zhihu": "知乎热榜",
-    "bilibili-hot-search": "B站热搜",
-    "toutiao": "今日头条",
-    "douyin": "抖音热榜",
-    "github-trending-today": "GitHub趋势",
-    "coolapk": "酷安热榜",
-    "tieba": "百度贴吧",
-    "wallstreetcn": "华尔街见闻",
-    "thepaper": "澎湃新闻",
-    "cls-hot": "财联社",
-    "xueqiu": "雪球热榜"
+    "weibo": "Weibo Hot Search",
+    "zhihu": "Zhihu Hot List",
+    "bilibili-hot-search": "Bilibili Hot Search",
+    "toutiao": "Toutiao",
+    "douyin": "Douyin Hot List",
+    "github-trending-today": "GitHub Trending",
+    "coolapk": "Coolapk Hot List",
+    "tieba": "Baidu Tieba",
+    "wallstreetcn": "Wallstreetcn",
+    "thepaper": "The Paper",
+    "cls-hot": "CLS Hot",
+    "xueqiu": "Xueqiu Hot List"
 }
 
 class NewsCollector:
-    """新闻收集器 - 整合API调用和数据库存储"""
+    """News collector - integrates API calls and database storage."""
     
     def __init__(self):
-        """初始化新闻收集器"""
+        """Initialize news collector."""
         self.db_manager = DatabaseManager()
         self.supported_sources = list(SOURCE_NAMES.keys())
     
     def close(self):
-        """关闭资源"""
+        """Close resources."""
         if self.db_manager:
             self.db_manager.close()
     
@@ -67,10 +67,10 @@ class NewsCollector:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.close()
     
-    # ==================== 新闻API调用 ====================
+    # ==================== News API Calls ====================
     
     async def fetch_news(self, source: str) -> dict:
-        """从指定源获取最新新闻"""
+        """Fetch latest news from the specified source."""
         url = f"{BASE_URL}/api/s?id={source}&latest"
         headers = {
             "Accept": "application/json, text/plain, */*",
@@ -89,7 +89,7 @@ class NewsCollector:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 
-                # 解析JSON响应
+                # Parse JSON response
                 data = response.json()
                 return {
                     "source": source,
@@ -101,36 +101,36 @@ class NewsCollector:
             return {
                 "source": source,
                 "status": "timeout",
-                "error": f"请求超时: {source}({url})",
+                "error": f"Request timeout: {source}({url})",
                 "timestamp": datetime.now().isoformat()
             }
         except httpx.HTTPStatusError as e:
             return {
                 "source": source,
                 "status": "http_error",
-                "error": f"HTTP错误: {source}({url}) - {e.response.status_code}",
+                "error": f"HTTP error: {source}({url}) - {e.response.status_code}",
                 "timestamp": datetime.now().isoformat()
             }
         except Exception as e:
             return {
                 "source": source,
                 "status": "error",
-                "error": f"未知错误: {source}({url}) - {str(e)}",
+                "error": f"Unknown error: {source}({url}) - {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
     
     async def get_popular_news(self, sources: List[str] = None) -> List[dict]:
-        """获取热门新闻"""
+        """Get popular news."""
         if sources is None:
             sources = list(SOURCE_NAMES.keys())
         
-        logger.info(f"正在获取 {len(sources)} 个新闻源的最新内容...")
+        logger.info(f"Fetching latest content from {len(sources)} news sources...")
         logger.info("=" * 80)
         
         results = []
         for source in sources:
             source_name = SOURCE_NAMES.get(source, source)
-            logger.info(f"正在获取 {source_name} 的新闻...")
+            logger.info(f"Fetching news from {source_name}...")
             result = await self.fetch_news(source)
             results.append(result)
             
@@ -138,39 +138,39 @@ class NewsCollector:
                 data = result["data"]
                 if 'items' in data and isinstance(data['items'], list):
                     count = len(data['items'])
-                    logger.info(f"✓ {source_name}: 获取成功，共 {count} 条新闻")
+                    logger.info(f"✓ {source_name}: fetch succeeded, total {count} items")
                 else:
-                    logger.info(f"✓ {source_name}: 获取成功")
+                    logger.info(f"✓ {source_name}: fetch succeeded")
             else:
-                logger.error(f"✗ {source_name}: {result.get('error', '获取失败')}")
+                logger.error(f"✗ {source_name}: {result.get('error', 'Fetch failed')}")
             
-            # 避免请求过快
+            # Avoid sending requests too quickly
             await asyncio.sleep(0.5)
         
         return results
     
-    # ==================== 数据处理和存储 ====================
+    # ==================== Data Processing and Storage ====================
     
     async def collect_and_save_news(self, sources: Optional[List[str]] = None) -> Dict:
         """
-        收集并保存每日热点新闻
+        Collect and save daily trending news.
         
         Args:
-            sources: 指定的新闻源列表，None表示使用所有支持的源
+            sources: Specified news source list; None means all supported sources
             
         Returns:
-            包含收集结果的字典
+            Dictionary containing collection results
         """
         collection_summary_message = ""
-        collection_summary_message += "\n开始收集每日热点新闻...\n"
-        collection_summary_message += f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        collection_summary_message += "\nStarting daily trending news collection...\n"
+        collection_summary_message += f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         
-        # 选择新闻源
+        # Select news sources
         if sources is None:
-            # 使用所有支持的新闻源
+            # Use all supported news sources
             sources = list(SOURCE_NAMES.keys())
         
-        collection_summary_message += f"将从 {len(sources)} 个新闻源收集数据:\n"
+        collection_summary_message += f"Collecting data from {len(sources)} news sources:\n"
         for source in sources:
             source_name = SOURCE_NAMES.get(source, source)
             collection_summary_message += f"  - {source_name}\n"
@@ -178,13 +178,13 @@ class NewsCollector:
         logger.info(collection_summary_message)
         
         try:
-            # 获取新闻数据
+            # Fetch news data
             results = await self.get_popular_news(sources)
             
-            # 处理结果
+            # Process results
             processed_data = self._process_news_results(results)
             
-            # 保存到数据库（覆盖模式）
+            # Save to database (replace mode)
             if processed_data['news_list']:
                 saved_count = self.db_manager.save_daily_news(
                     processed_data['news_list'], 
@@ -192,13 +192,13 @@ class NewsCollector:
                 )
                 processed_data['saved_count'] = saved_count
             
-            # 打印统计信息
+            # Print summary statistics
             self._print_collection_summary(processed_data)
             
             return processed_data
             
         except Exception as e:
-            logger.exception(f"收集新闻失败: {e}")
+            logger.exception(f"News collection failed: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -207,7 +207,7 @@ class NewsCollector:
             }
     
     def _process_news_results(self, results: List[Dict]) -> Dict:
-        """处理新闻获取结果"""
+        """Process news fetch results."""
         news_list = []
         successful_sources = 0
         total_news = 0
@@ -224,7 +224,7 @@ class NewsCollector:
                     source_news_count = len(data['items'])
                     total_news += source_news_count
                     
-                    # 处理该源的新闻
+                    # Process news from this source
                     for i, item in enumerate(data['items'], 1):
                         processed_news = self._process_news_item(item, source, i)
                         if processed_news:
@@ -240,13 +240,13 @@ class NewsCollector:
         }
     
     def _process_news_item(self, item: Dict, source: str, rank: int) -> Optional[Dict]:
-        """处理单条新闻"""
+        """Process a single news item."""
         try:
             if isinstance(item, dict):
-                title = item.get('title', '无标题').strip()
+                title = item.get('title', 'Untitled').strip()
                 url = item.get('url', '')
                 
-                # 生成新闻ID
+                # Generate news ID
                 news_id = f"{source}_{item.get('id', f'rank_{rank}')}"
                 
                 return {
@@ -257,7 +257,7 @@ class NewsCollector:
                     'rank': rank
                 }
             else:
-                # 处理字符串类型的新闻
+                # Handle string-type news entries
                 title = str(item)[:100] if len(str(item)) > 100 else str(item)
                 return {
                     'id': f"{source}_rank_{rank}",
@@ -268,41 +268,41 @@ class NewsCollector:
                 }
                 
         except Exception as e:
-            logger.exception(f"处理新闻项失败: {e}")
+            logger.exception(f"Failed to process news item: {e}")
             return None
     
     def _print_collection_summary(self, data: Dict):
-        """打印收集摘要"""
+        """Print collection summary."""
         collection_summary_message = ""
-        collection_summary_message += f"\n总新闻源: {data['total_sources']}\n"
-        collection_summary_message += f"成功源数: {data['successful_sources']}\n"
-        collection_summary_message += f"总新闻数: {data['total_news']}\n"
+        collection_summary_message += f"\nTotal sources: {data['total_sources']}\n"
+        collection_summary_message += f"Successful sources: {data['successful_sources']}\n"
+        collection_summary_message += f"Total news items: {data['total_news']}\n"
         if 'saved_count' in data:
-            collection_summary_message += f"已保存数: {data['saved_count']}\n"
+            collection_summary_message += f"Saved count: {data['saved_count']}\n"
         logger.info(collection_summary_message)
     
     def get_today_news(self) -> List[Dict]:
-        """获取今天的新闻"""
+        """Get today's news."""
         try:
             return self.db_manager.get_daily_news(date.today())
         except Exception as e:
-            logger.exception(f"获取今日新闻失败: {e}")
+            logger.exception(f"Failed to get today's news: {e}")
             return []
 
 async def main():
-    """测试新闻收集器"""
-    logger.info("测试新闻收集器...")
+    """Test news collector."""
+    logger.info("Testing news collector...")
     
     async with NewsCollector() as collector:
-        # 收集新闻
+        # Collect news
         result = await collector.collect_and_save_news(
-            sources=["weibo", "zhihu"]  # 测试用，只使用两个源
+            sources=["weibo", "zhihu"]  # test run: use only two sources
         )
         
         if result['success']:
-            logger.info(f"收集成功！共获取 {result['total_news']} 条新闻")
+            logger.info(f"Collection succeeded! Total fetched: {result['total_news']} news items")
         else:
-            logger.error(f"收集失败: {result.get('error', '未知错误')}")
+            logger.error(f"Collection failed: {result.get('error', 'Unknown error')}")
 
 if __name__ == "__main__":
     asyncio.run(main())
