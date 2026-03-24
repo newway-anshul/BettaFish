@@ -56,8 +56,8 @@ class LLMClient:
 
     @with_retry(LLM_RETRY_CONFIG)
     def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
-        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
-        time_prefix = f"今天的实际时间是{current_time}"
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        time_prefix = f"The current actual time is {current_time}"
         if user_prompt:
             user_prompt = f"{time_prefix}\n{user_prompt}"
         else:
@@ -85,18 +85,18 @@ class LLMClient:
 
     def stream_invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> Generator[str, None, None]:
         """
-        流式调用LLM，逐步返回响应内容
+        Stream LLM invocation and return response chunks incrementally.
         
         Args:
-            system_prompt: 系统提示词
-            user_prompt: 用户提示词
-            **kwargs: 额外参数（temperature, top_p等）
+            system_prompt: System prompt
+            user_prompt: User prompt
+            **kwargs: Extra parameters (temperature, top_p, etc.)
             
         Yields:
-            响应文本块（str）
+            Response text chunk (str)
         """
-        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
-        time_prefix = f"今天的实际时间是{current_time}"
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        time_prefix = f"The current actual time is {current_time}"
         if user_prompt:
             user_prompt = f"{time_prefix}\n{user_prompt}"
         else:
@@ -108,7 +108,7 @@ class LLMClient:
 
         allowed_keys = {"temperature", "top_p", "presence_penalty", "frequency_penalty"}
         extra_params = {key: value for key, value in kwargs.items() if key in allowed_keys and value is not None}
-        # 强制使用流式
+        # Force streaming mode.
         extra_params["stream"] = True
 
         timeout = kwargs.pop("timeout", self.timeout)
@@ -127,28 +127,29 @@ class LLMClient:
                     if delta and delta.content:
                         yield delta.content
         except Exception as e:
-            logger.error(f"流式请求失败: {str(e)}")
+            logger.error(f"Streaming request failed: {str(e)}")
             raise e
     
     @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
-        流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）
+        Stream LLM invocation and safely concatenate into a full string
+        (avoids UTF-8 multibyte character truncation).
         
         Args:
-            system_prompt: 系统提示词
-            user_prompt: 用户提示词
-            **kwargs: 额外参数（temperature, top_p等）
+            system_prompt: System prompt
+            user_prompt: User prompt
+            **kwargs: Extra parameters (temperature, top_p, etc.)
             
         Returns:
-            完整的响应字符串
+            Full response string
         """
-        # 以字节形式收集所有块
+        # Collect all chunks as bytes.
         byte_chunks = []
         for chunk in self.stream_invoke(system_prompt, user_prompt, **kwargs):
             byte_chunks.append(chunk.encode('utf-8'))
         
-        # 拼接所有字节，然后一次性解码
+        # Join bytes and decode in one pass.
         if byte_chunks:
             return b''.join(byte_chunks).decode('utf-8', errors='replace')
         return ""
