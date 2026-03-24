@@ -1,10 +1,10 @@
-"""
-Report Engine Flask接口。
+﻿"""
+Report Engine Flasktranslated。
 
-该模块为前端/CLI提供统一HTTP/SSE入口，负责：
-1. 初始化 ReportAgent 并串联后台线程；
-2. 管理任务排队、进度查询、流式推送与日志下载；
-3. 提供模板列表、输入文件检查等周边能力。
+translated/CLItranslatedHTTP/SSEtranslated，translated：
+1. translated ReportAgent translated；
+2. translated、translated、translated；
+3. translated、translated。
 """
 
 import os
@@ -23,19 +23,19 @@ from .nodes import ChapterJsonParseError
 from .utils.config import settings
 
 
-# 创建Blueprint
+# translatedBlueprint
 report_bp = Blueprint('report_engine', __name__)
 
-# 全局变量
+# translated
 report_agent = None
 current_task = None
 task_lock = threading.Lock()
 
-# ====== 流式推送与任务历史管理 ======
-# 通过有界deque缓存最近的事件，方便SSE断线后快速补发
+# ====== translated ======
+# translateddequetranslated，translatedSSEtranslated
 MAX_TASK_HISTORY = 5
-STREAM_HEARTBEAT_INTERVAL = 15  # 心跳间隔秒
-STREAM_IDLE_TIMEOUT = 120  # 终态后最长保活时间，避免孤儿SSE阻塞
+STREAM_HEARTBEAT_INTERVAL = 15  # translated
+STREAM_IDLE_TIMEOUT = 120  # translated，translatedSSEtranslated
 STREAM_TERMINAL_STATUSES = {"completed", "error", "cancelled"}
 stream_lock = threading.Lock()
 stream_subscribers = defaultdict(list)
@@ -47,10 +47,10 @@ EXCLUDED_ENGINE_PATH_KEYWORDS = ("ForumEngine", "InsightEngine", "MediaEngine", 
 
 def _is_excluded_engine_log(record: Dict[str, Any]) -> bool:
     """
-    判断日志是否来自其他引擎（Insight/Media/Query/Forum），用于过滤混入的日志。
+    translated（Insight/Media/Query/Forum），translated。
 
-    返回:
-        bool: True 表示应当过滤（即不写入/不转发）。
+    translated:
+        bool: True translated（translated/translated）。
     """
     try:
         file_path = record["file"].path
@@ -59,7 +59,7 @@ def _is_excluded_engine_log(record: Dict[str, Any]) -> bool:
     except Exception:
         pass
 
-    # 兜底：尝试按模块名过滤，防止file信息缺失时误混入
+    # translated：translated，translatedfiletranslated
     try:
         module_name = record.get("module", "")
         if isinstance(module_name, str):
@@ -73,9 +73,9 @@ def _is_excluded_engine_log(record: Dict[str, Any]) -> bool:
 
 def _stream_log_to_task(message):
     """
-    将loguru日志同步到当前任务的SSE事件，保证前端实时可见。
+    translatedlogurutranslatedSSEtranslated，translated。
 
-    仅在存在运行中的任务时推送，避免无关日志刷屏。
+    translated，translated。
     """
     try:
         record = message.record
@@ -105,12 +105,12 @@ def _stream_log_to_task(message):
             },
         )
     except Exception:
-        # 避免在日志钩子里产生日志递归
+        # translated
         pass
 
 
 def _setup_log_stream_forwarder():
-    """为当前进程挂载一次性的loguru钩子，用于SSE实时转发。"""
+    """translatedlogurutranslated，translatedSSEtranslated。"""
     global log_stream_handler_id
     if log_stream_handler_id is not None:
         return
@@ -124,15 +124,15 @@ def _setup_log_stream_forwarder():
 
 def _register_stream(task_id: str) -> Queue:
     """
-    为指定任务注册一个事件队列，供SSE监听器消费。
+    translated，translatedSSEtranslated。
 
-    返回的 Queue 会存入 `stream_subscribers`，SSE 生成器将不断读取。
+    translated Queue translated `stream_subscribers`，SSE translated。
 
-    参数:
-        task_id: 需要监听的任务ID。
+    translated:
+        task_id: translatedID。
 
-    返回:
-        Queue: 线程安全的事件队列。
+    translated:
+        Queue: translated。
     """
     queue = Queue()
     with stream_lock:
@@ -142,13 +142,13 @@ def _register_stream(task_id: str) -> Queue:
 
 def _unregister_stream(task_id: str, queue: Queue):
     """
-    安全移除事件队列，避免内存泄漏。
+    translated，translated。
 
-    需要在finally中调用，保证异常情况下资源也能释放。
+    translatedfinallytranslated，translated。
 
-    参数:
-        task_id: 任务ID。
-        queue: 之前注册的事件队列。
+    translated:
+        task_id: translatedID。
+        queue: translated。
     """
     with stream_lock:
         listeners = stream_subscribers.get(task_id, [])
@@ -160,13 +160,13 @@ def _unregister_stream(task_id: str, queue: Queue):
 
 def _broadcast_event(task_id: str, event: Dict[str, Any]):
     """
-    将事件推送给所有监听者，失败时做好异常捕获。
+    translated，translated。
 
-    采用浅拷贝监听列表，防止并发移除导致遍历异常。
+    translated，translated。
 
-    参数:
-        task_id: 待推送的任务ID。
-        event: 结构化事件payload。
+    translated:
+        task_id: translatedID。
+        event: translatedpayload。
     """
     with stream_lock:
         listeners = list(stream_subscribers.get(task_id, []))
@@ -174,21 +174,21 @@ def _broadcast_event(task_id: str, event: Dict[str, Any]):
         try:
             queue.put(event, timeout=0.1)
         except Exception:
-            logger.exception("推送流式事件失败，跳过当前监听队列")
+            logger.exception("translated，translated")
 
 
 def _prune_task_history_locked():
     """
-    在task_lock持有期间调用，清理过多的历史任务。
+    translatedtask_locktranslated，translated。
 
-    仅保留最近 `MAX_TASK_HISTORY` 个任务，避免长时间运行占用过多内存。
+    translated `MAX_TASK_HISTORY` translated，translated。
 
-    说明:
-        该函数假设调用方已获取 `task_lock`，否则存在竞态风险。
+    translated:
+        translated `task_lock`，translated。
     """
     if len(tasks_registry) <= MAX_TASK_HISTORY:
         return
-    # 按创建时间排序，移除最旧的任务
+    # translated，translated
     sorted_tasks = sorted(tasks_registry.values(), key=lambda t: t.created_at)
     for task in sorted_tasks[:-MAX_TASK_HISTORY]:
         tasks_registry.pop(task.task_id, None)
@@ -196,15 +196,15 @@ def _prune_task_history_locked():
 
 def _get_task(task_id: str) -> Optional['ReportTask']:
     """
-    统一的任务查找方法，优先返回当前任务。
+    translated，translated。
 
-    避免重复写锁逻辑，便于多个API共享。
+    translated，translatedAPItranslated。
 
-    参数:
-        task_id: 任务ID。
+    translated:
+        task_id: translatedID。
 
-    返回:
-        ReportTask | None: 命中时返回任务实例，否则为None。
+    translated:
+        ReportTask | None: translated，translatedNone。
     """
     with task_lock:
         if current_task and current_task.task_id == task_id:
@@ -214,15 +214,15 @@ def _get_task(task_id: str) -> Optional['ReportTask']:
 
 def _format_sse(event: Dict[str, Any]) -> str:
     """
-    按SSE协议格式化消息。
+    translatedSSEtranslated。
 
-    输出形如 `id:/event:/data:` 的三段文本，供浏览器端直接消费。
+    translated `id:/event:/data:` translated，translated。
 
-    参数:
-        event: 事件payload，至少包含 id/type。
+    translated:
+        event: translatedpayload，translated id/type。
 
-    返回:
-        str: SSE协议要求的字符串。
+    translated:
+        str: SSEtranslated。
     """
     payload = json.dumps(event, ensure_ascii=False)
     event_id = event.get('id', 0)
@@ -232,11 +232,11 @@ def _format_sse(event: Dict[str, Any]) -> str:
 
 def _safe_filename_segment(value: str, fallback: str = "report") -> str:
     """
-    生成可用于文件名的安全片段，保留字母数字与常见分隔符。
+    translated，translated。
 
-    参数:
-        value: 原始字符串。
-        fallback: 兜底文本，当value为空或清洗后为空时使用。
+    translated:
+        value: translated。
+        fallback: translated，translatedvaluetranslated。
     """
     sanitized = "".join(c for c in str(value) if c.isalnum() or c in (" ", "-", "_")).strip()
     sanitized = sanitized.replace(" ", "_")
@@ -245,53 +245,53 @@ def _safe_filename_segment(value: str, fallback: str = "report") -> str:
 
 def initialize_report_engine():
     """
-    初始化Report Engine。
+    translatedReport Engine。
 
-    单例化 ReportAgent，方便 API 启动后直接接收任务。
+    translated ReportAgent，translated API translated。
 
-    返回:
-        bool: 初始化成功返回True，异常时返回False。
+    translated:
+        bool: translatedTrue，translatedFalse。
     """
     global report_agent
     try:
         report_agent = create_agent()
-        logger.info("Report Engine初始化成功")
+        logger.info("Report Enginetranslated")
         _setup_log_stream_forwarder()
 
-        # 检测 PDF 生成依赖（Pango）
+        # translated PDF translated（Pango）
         try:
             from .utils.dependency_check import log_dependency_status
             log_dependency_status()
         except Exception as dep_err:
-            logger.warning(f"依赖检测失败: {dep_err}")
+            logger.warning(f"translated: {dep_err}")
 
         return True
     except Exception as e:
-        logger.exception(f"Report Engine初始化失败: {str(e)}")
+        logger.exception(f"Report Enginetranslated: {str(e)}")
         return False
 
 
 class ReportTask:
     """
-    报告生成任务。
+    translated。
 
-    该对象串联运行状态、进度、事件历史及最终文件路径，
-    既供后台线程更新，也供HTTP接口读取。
+    translated、translated、translated，
+    translated，translatedHTTPtranslated。
     """
 
     def __init__(self, query: str, task_id: str, custom_template: str = ""):
         """
-        初始化任务对象，记录查询词、自定义模板与运行期元数据。
+        translated，translated、translated。
 
         Args:
-            query: 最终需要生成的报告主题
-            task_id: 任务唯一ID，通常由时间戳构造
-            custom_template: 可选的自定义Markdown模板
+            query: translated
+            task_id: translatedID，translated
+            custom_template: translatedMarkdowntranslated
         """
         self.task_id = task_id
         self.query = query
         self.custom_template = custom_template
-        self.status = "pending"  # 四种状态（pending/running/completed/error）
+        self.status = "pending"  # translated（pending/running/completed/error）
         self.progress = 0
         self.result = None
         self.error_message = ""
@@ -308,22 +308,22 @@ class ReportTask:
         self.markdown_file_path = ""
         self.markdown_file_relative_path = ""
         self.markdown_file_name = ""
-        # ====== 流式事件缓存与并发保护 ======
-        # 使用deque保存最近的事件，结合锁保证多线程下的安全访问
+        # ====== translated ======
+        # translateddequetranslated，translated
         self.event_history: deque = deque(maxlen=1000)
         self._event_lock = threading.Lock()
         self.last_event_id = 0
 
     def update_status(self, status: str, progress: int = None, error_message: str = ""):
         """
-        更新任务状态并广播事件。
+        translated。
 
-        会自动刷新 `updated_at`、错误信息，并触发 `status` 类型的 SSE。
+        translated `updated_at`、translated，translated `status` translated SSE。
 
-        参数:
-            status: 任务阶段（pending/running/completed/error/cancelled）。
-            progress: 可选的进度百分比。
-            error_message: 出错时的人类可读说明。
+        translated:
+            status: translated（pending/running/completed/error/cancelled）。
+            progress: translated。
+            error_message: translated。
         """
         self.status = status
         if progress is not None:
@@ -331,7 +331,7 @@ class ReportTask:
         if error_message:
             self.error_message = error_message
         self.updated_at = datetime.now()
-        # 推送状态变更事件，方便前端实时刷新
+        # translated，translated
         self.publish_event(
             'status',
             {
@@ -344,7 +344,7 @@ class ReportTask:
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式，方便直接返回给JSON API。"""
+        """translated，translatedJSON API。"""
         return {
             'task_id': self.task_id,
             'query': self.query,
@@ -368,11 +368,11 @@ class ReportTask:
 
     def publish_event(self, event_type: str, payload: Dict[str, Any]) -> None:
         """
-        将任意事件放入缓存并广播，所有新增逻辑均配套中文说明。
+        translated，translated。
 
-        参数:
-            event_type: SSE中的event名称。
-            payload: 实际业务数据。
+        translated:
+            event_type: SSEtranslatedeventtranslated。
+            payload: translated。
         """
         timestamp = datetime.utcnow().isoformat() + 'Z'
         event: Dict[str, Any] = {
@@ -390,13 +390,13 @@ class ReportTask:
 
     def history_since(self, last_event_id: Optional[int]) -> List[Dict[str, Any]]:
         """
-        根据Last-Event-ID补发历史事件，确保断线重连无遗漏。
+        translatedLast-Event-IDtranslated，translated。
 
-        参数:
-            last_event_id: SSE客户端记录的最后一个事件ID。
+        translated:
+            last_event_id: SSEtranslatedID。
 
-        返回:
-            list[dict]: 从 last_event_id 之后的事件列表。
+        translated:
+            list[dict]: translated last_event_id translated。
         """
         with self._event_lock:
             if last_event_id is None:
@@ -406,10 +406,10 @@ class ReportTask:
 
 def check_engines_ready() -> Dict[str, Any]:
     """
-    检查三个子引擎是否都有新文件。
+    translated。
 
-    调用 ReportAgent 的基准检测逻辑，并附带论坛日志存在性，
-    是 /status、/generate 的前置校验。
+    translated ReportAgent translated，translated，
+    translated /status、/generate translated。
     """
     directories = {
         'insight': 'insight_engine_streamlit_reports',
@@ -422,7 +422,7 @@ def check_engines_ready() -> Dict[str, Any]:
     if not report_agent:
         return {
             'ready': False,
-            'error': 'Report Engine未初始化'
+            'error': 'Report Enginetranslated'
         }
 
     return report_agent.check_input_files(
@@ -435,51 +435,51 @@ def check_engines_ready() -> Dict[str, Any]:
 
 def run_report_generation(task: ReportTask, query: str, custom_template: str = ""):
     """
-    在后台线程中运行报告生成。
+    translated。
 
-    包括：检查输入→加载文档→调用ReportAgent→持久化输出→
-    推送阶段性事件。出现错误会自动推送并写状态。
+    translated：translated→translated→translatedReportAgent→translated→
+    translated。translated。
 
-    参数:
-        task: 本次任务对象，内部持有事件队列。
-        query: 报告主题。
-        custom_template: 可选的自定义模板字符串。
+    translated:
+        task: translated，translated。
+        query: translated。
+        custom_template: translated。
     """
     global current_task
 
     try:
-        # 在局部闭包内封装推送逻辑，便于传递给ReportAgent
+        # translated，translatedReportAgent
         def stream_handler(event_type: str, payload: Dict[str, Any]):
-            """所有阶段事件都通过同一个接口分发，保证日志一致。"""
+            """translated，translated。"""
             task.publish_event(event_type, payload)
-            # 如果事件包含进度信息，同步更新任务进度
+            # translated，translated
             if event_type == 'progress' and 'progress' in payload:
                 task.update_status("running", payload['progress'])
 
         task.update_status("running", 5)
-        task.publish_event('stage', {'message': '任务已启动，正在检查输入文件', 'stage': 'prepare'})
+        task.publish_event('stage', {'message': 'translated，translated', 'stage': 'prepare'})
 
-        # 检查输入文件
+        # translated
         check_result = check_engines_ready()
         if not check_result['ready']:
-            task.update_status("error", 0, f"输入文件未准备就绪: {check_result.get('missing_files', [])}")
+            task.update_status("error", 0, f"translated: {check_result.get('missing_files', [])}")
             return
 
         task.publish_event('stage', {
-            'message': '输入文件检查通过，准备载入内容',
+            'message': 'translated，translated',
             'stage': 'io_ready',
             'files': check_result.get('latest_files', {})
         })
 
-        # 加载输入文件
+        # translated
         content = report_agent.load_input_files(check_result['latest_files'])
-        task.publish_event('stage', {'message': '源数据加载完成，启动生成流程', 'stage': 'data_loaded'})
+        task.publish_event('stage', {'message': 'translated，translated', 'stage': 'data_loaded'})
 
-        # 生成报告（附带兜底重试，缓解瞬时网络抖动）
+        # translated（translated，translated）
         for attempt in range(1, 3):
             try:
                 task.publish_event('stage', {
-                    'message': f'正在调用ReportAgent生成报告（第{attempt}次尝试）',
+                    'message': f'translatedReportAgenttranslated（translated{attempt}translated）',
                     'stage': 'agent_running',
                     'attempt': attempt
                 })
@@ -493,7 +493,7 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
                 )
                 break
             except ChapterJsonParseError as err:
-                hint_message = "尝试将Report Engine的API更换为算力更强、上下文更长的LLM"
+                hint_message = "translatedReport EnginetranslatedAPItranslated、translatedLLM"
                 task.publish_event('warning', {
                     'message': hint_message,
                     'stage': 'agent_running',
@@ -502,28 +502,28 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
                     'error': str(err),
                     'task': task.to_dict(),
                 })
-                # 旧逻辑：在JSON解析失败后重启Report Engine
+                # translated：translatedJSONtranslatedReport Engine
                 # backoff = min(5 * attempt, 15)
                 # task.publish_event('stage', {
-                #     'message': f'{backoff} 秒后重试生成任务',
+                #     'message': f'{backoff} translated',
                 #     'stage': 'retry_wait',
                 #     'wait_seconds': backoff
                 # })
                 # time.sleep(backoff)
                 raise ChapterJsonParseError(hint_message) from err
             except Exception as err:
-                # 将错误即时推送至前端，方便观察重试策略
+                # translated，translated
                 task.publish_event('warning', {
-                    'message': f'ReportAgent执行失败: {str(err)}',
+                    'message': f'ReportAgenttranslated: {str(err)}',
                     'stage': 'agent_running',
                     'attempt': attempt
                 })
                 if attempt == 2:
                     raise
-                # 简单的指数退避，防止频繁触发限流（单位秒）
+                # translated，translated（translated）
                 backoff = min(5 * attempt, 15)
                 task.publish_event('stage', {
-                    'message': f'{backoff} 秒后重试生成任务',
+                    'message': f'{backoff} translated',
                     'stage': 'retry_wait',
                     'wait_seconds': backoff
                 })
@@ -534,9 +534,9 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         else:
             html_report = generation_result
 
-        task.publish_event('stage', {'message': '报告生成完毕，准备持久化', 'stage': 'persist'})
+        task.publish_event('stage', {'message': 'translated，translated', 'stage': 'persist'})
 
-        # 保存结果
+        # translated
         task.html_content = html_report
         if isinstance(generation_result, dict):
             task.report_file_path = generation_result.get('report_filepath', '')
@@ -547,28 +547,28 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             task.ir_file_path = generation_result.get('ir_filepath', '')
             task.ir_file_relative_path = generation_result.get('ir_relative_path', '')
         task.publish_event('html_ready', {
-            'message': 'HTML渲染完成，可刷新预览',
+            'message': 'HTMLtranslated，translated',
             'report_file': task.report_file_relative_path or task.report_file_path,
             'state_file': task.state_file_relative_path or task.state_file_path,
             'task': task.to_dict(),
         })
         task.update_status("completed", 100)
         task.publish_event('completed', {
-            'message': '任务完成',
+            'message': 'translated',
             'duration_seconds': (task.updated_at - task.created_at).total_seconds(),
             'report_file': task.report_file_relative_path or task.report_file_path,
             'task': task.to_dict(),
         })
 
     except Exception as e:
-        logger.exception(f"报告生成过程中发生错误: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         task.update_status("error", 0, str(e))
         task.publish_event('error', {
             'message': str(e),
             'stage': 'failed',
             'task': task.to_dict(),
         })
-        # 只在出错时清理任务
+        # translated
         with task_lock:
             if current_task and current_task.task_id == task.task_id:
                 current_task = None
@@ -577,10 +577,10 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
 @report_bp.route('/status', methods=['GET'])
 def get_status():
     """
-    获取Report Engine状态，包括引擎就绪情况与当前任务信息。
+    translatedReport Enginetranslated，translated。
 
-    返回:
-        Response: JSON结构包含initialized/engines_ready/当前任务等。
+    translated:
+        Response: JSONtranslatedinitialized/engines_ready/translated。
     """
     try:
         engines_status = check_engines_ready()
@@ -594,7 +594,7 @@ def get_status():
             'current_task': current_task.to_dict() if current_task else None
         })
     except Exception as e:
-        logger.exception(f"获取Report Engine状态失败: {str(e)}")
+        logger.exception(f"translatedReport Enginetranslated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -604,61 +604,61 @@ def get_status():
 @report_bp.route('/generate', methods=['POST'])
 def generate_report():
     """
-    开始生成报告。
+    translated。
 
-    负责排队、创建后台线程、清空日志并返回SSE地址。
+    translated、translated、translatedSSEtranslated。
 
-    请求体:
-        query: 报告主题（可选）。
-        custom_template: 自定义模板字符串（可选）。
+    translated:
+        query: translated（translated）。
+        custom_template: translated（translated）。
 
-    返回:
-        Response: JSON，包含 task_id 与 SSE stream url。
+    translated:
+        Response: JSON，translated task_id translated SSE stream url。
     """
     global current_task
 
     try:
-        # 检查是否有任务在运行
+        # translated
         with task_lock:
             if current_task and current_task.status == "running":
                 return jsonify({
                     'success': False,
-                    'error': '已有报告生成任务在运行中',
+                    'error': 'translated',
                     'current_task': current_task.to_dict()
                 }), 400
 
-            # 如果有已完成的任务，清理它
+            # translated，translated
             if current_task and current_task.status in ["completed", "error"]:
                 current_task = None
 
-        # 获取请求参数
+        # translated
         data = request.get_json() or {}
         if not isinstance(data, dict):
-            logger.warning("generate_report 接收到非对象JSON负载，已忽略原始内容")
+            logger.warning("generate_report translatedJSONtranslated，translated")
             data = {}
-        query = data.get('query', '智能舆情分析报告')
+        query = data.get('query', 'translated')
         custom_template = data.get('custom_template', '')
 
-        # 清空日志文件
+        # translated
         clear_report_log()
 
-        # 检查Report Engine是否初始化
+        # translatedReport Enginetranslated
         if not report_agent:
             return jsonify({
                 'success': False,
-                'error': 'Report Engine未初始化'
+                'error': 'Report Enginetranslated'
             }), 500
 
-        # 检查输入文件是否准备就绪
+        # translated
         engines_status = check_engines_ready()
         if not engines_status['ready']:
             return jsonify({
                 'success': False,
-                'error': '输入文件未准备就绪',
+                'error': 'translated',
                 'missing_files': engines_status.get('missing_files', [])
             }), 400
 
-        # 创建新任务
+        # translated
         task_id = f"report_{int(time.time())}"
         task = ReportTask(query, task_id, custom_template)
 
@@ -667,18 +667,18 @@ def generate_report():
             tasks_registry[task_id] = task
             _prune_task_history_locked()
 
-        # 通过主动推送pending事件告知前端任务已经排队
+        # translatedpendingtranslated
         task.publish_event(
             'status',
             {
                 'status': task.status,
                 'progress': task.progress,
-                'message': '任务已排队，等待资源空闲',
+                'message': 'translated，translated',
                 'task': task.to_dict(),
             }
         )
 
-        # 在后台线程中运行报告生成
+        # translated
         thread = threading.Thread(
             target=run_report_generation,
             args=(task, query, custom_template),
@@ -689,13 +689,13 @@ def generate_report():
         return jsonify({
             'success': True,
             'task_id': task_id,
-            'message': '报告生成已启动',
+            'message': 'translated',
             'task': task.to_dict(),
             'stream_url': f"/api/report/stream/{task_id}"
         })
 
     except Exception as e:
-        logger.exception(f"开始生成报告失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -705,18 +705,18 @@ def generate_report():
 @report_bp.route('/progress/<task_id>', methods=['GET'])
 def get_progress(task_id: str):
     """
-    获取报告生成进度，若任务被清理则返回一个完成态兜底。
+    translated，translated。
 
-    参数:
-        task_id: 任务唯一标识。
+    translated:
+        task_id: translated。
 
-    返回:
-        Response: JSON包含任务当前状态。
+    translated:
+        Response: JSONtranslated。
     """
     try:
         task = _get_task(task_id)
         if not task:
-            # 如果任务不存在，可能是历史记录已被清理，回传一个完成态兜底
+            # translated，translated，translated
             return jsonify({
                 'success': True,
                 'task': {
@@ -739,7 +739,7 @@ def get_progress(task_id: str):
         })
 
     except Exception as e:
-        logger.exception(f"获取报告生成进度失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -749,21 +749,21 @@ def get_progress(task_id: str):
 @report_bp.route('/stream/<task_id>', methods=['GET'])
 def stream_task(task_id: str):
     """
-    基于SSE的实时推送接口。
+    translatedSSEtranslated。
 
-    - 自动补发Last-Event-ID之后的历史事件；
-    - 周期性发送心跳以防代理中断；
-    - 任务结束后自动注销监听。
+    - translatedLast-Event-IDtranslated；
+    - translated；
+    - translated。
 
-    参数:
-        task_id: 任务唯一标识。
+    translated:
+        task_id: translated。
 
-    返回:
-        Response: `text/event-stream` 类型响应。
+    translated:
+        Response: `text/event-stream` translated。
     """
     task = _get_task(task_id)
     if not task:
-        return jsonify({'success': False, 'error': '任务不存在'}), 404
+        return jsonify({'success': False, 'error': 'translated'}), 404
 
     last_event_header = request.headers.get('Last-Event-ID')
     try:
@@ -773,10 +773,10 @@ def stream_task(task_id: str):
 
     def client_disconnected() -> bool:
         """
-        尽早探测客户端是否已经断开，避免继续写入触发BrokenPipe。
+        translated，translatedBrokenPipe。
 
-        eventlet 在 Windows 上会在关闭连接时抛出 ConnectionAbortedError，
-        提前退出生成器可以缩减无意义的日志。
+        eventlet translated Windows translated ConnectionAbortedError，
+        translated。
         """
         try:
             env_input = request.environ.get('wsgi.input')
@@ -786,16 +786,16 @@ def stream_task(task_id: str):
 
     def event_generator():
         """
-        SSE事件生成器。
+        SSEtranslated。
 
-        - 负责注册并消费对应任务的事件队列；
-        - 先回放历史事件再持续监听实时事件；
-        - 周期性发送心跳并在任务结束后自动注销监听。
+        - translated；
+        - translated；
+        - translated。
         """
         queue = _register_stream(task_id)
         last_data_ts = time.time()
         try:
-            # 断线重连场景下，先补发历史事件，保证界面状态一致
+            # translated，translated，translated
             history = task.history_since(last_event_id)
             for event in history:
                 yield _format_sse(event)
@@ -807,14 +807,14 @@ def stream_task(task_id: str):
                 if finished:
                     break
                 if client_disconnected():
-                    logger.info(f"SSE客户端已断开，停止推送: {task_id}")
+                    logger.info(f"SSEtranslated，translated: {task_id}")
                     break
                 event = None
                 try:
                     event = queue.get(timeout=STREAM_HEARTBEAT_INTERVAL)
                 except Empty:
                     if task.status in STREAM_TERMINAL_STATUSES:
-                        logger.info(f"任务 {task_id} 已结束且无新事件，SSE自动收口")
+                        logger.info(f"translated {task_id} translated，SSEtranslated")
                         break
                     heartbeat = {
                         'id': f"hb-{int(time.time() * 1000)}",
@@ -825,7 +825,7 @@ def stream_task(task_id: str):
                     }
                     event = heartbeat
                 if event is None:
-                    logger.warning(f"SSE推送获取事件失败（task {task_id}），提前结束")
+                    logger.warning(f"SSEtranslated（task {task_id}），translated")
                     break
 
                 try:
@@ -833,14 +833,14 @@ def stream_task(task_id: str):
                     if event.get('type') != 'heartbeat':
                         last_data_ts = time.time()
                 except GeneratorExit:
-                    logger.info(f"SSE生成器关闭，停止任务 {task_id} 推送")
+                    logger.info(f"SSEtranslated，translated {task_id} translated")
                     break
                 except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError) as exc:
-                    logger.warning(f"SSE连接被客户端中断（task {task_id}）: {exc}")
+                    logger.warning(f"SSEtranslated（task {task_id}）: {exc}")
                     break
                 except Exception as exc:
                     event_type = event.get('type') if isinstance(event, dict) else 'unknown'
-                    logger.exception(f"SSE推送失败（task {task_id}, event {event_type}）: {exc}")
+                    logger.exception(f"SSEtranslated（task {task_id}, event {event_type}）: {exc}")
                     break
 
                 if event.get('type') in ("completed", "error", "cancelled"):
@@ -848,11 +848,11 @@ def stream_task(task_id: str):
                 else:
                     finished = finished or task.status in STREAM_TERMINAL_STATUSES
 
-                # 终态下最多保活一段时间，防止前端早已结束但后台循环未退出
+                # translated，translated
                 if task.status in STREAM_TERMINAL_STATUSES:
                     idle_for = time.time() - last_data_ts
                     if idle_for > STREAM_IDLE_TIMEOUT:
-                        logger.info(f"任务 {task_id} 已终态且空闲 {int(idle_for)}s，主动关闭SSE")
+                        logger.info(f"translated {task_id} translated {int(idle_for)}s，translatedSSE")
                         break
         finally:
             _unregister_stream(task_id, queue)
@@ -869,26 +869,26 @@ def stream_task(task_id: str):
 @report_bp.route('/result/<task_id>', methods=['GET'])
 def get_result(task_id: str):
     """
-    获取报告生成结果。
+    translated。
 
-    参数:
-        task_id: 任务ID。
+    translated:
+        task_id: translatedID。
 
-    返回:
-        Response: JSON，包含HTML预览与文件路径。
+    translated:
+        Response: JSON，translatedHTMLtranslated。
     """
     try:
         task = _get_task(task_id)
         if not task:
             return jsonify({
                 'success': False,
-                'error': '任务不存在'
+                'error': 'translated'
             }), 404
 
         if task.status != "completed":
             return jsonify({
                 'success': False,
-                'error': '报告尚未完成',
+                'error': 'translated',
                 'task': task.to_dict()
             }), 400
 
@@ -898,7 +898,7 @@ def get_result(task_id: str):
         )
 
     except Exception as e:
-        logger.exception(f"获取报告生成结果失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -907,19 +907,19 @@ def get_result(task_id: str):
 
 @report_bp.route('/result/<task_id>/json', methods=['GET'])
 def get_result_json(task_id: str):
-    """获取报告生成结果（JSON格式）"""
+    """translated（JSONtranslated）"""
     try:
         task = _get_task(task_id)
         if not task:
             return jsonify({
                 'success': False,
-                'error': '任务不存在'
+                'error': 'translated'
             }), 404
 
         if task.status != "completed":
             return jsonify({
                 'success': False,
-                'error': '报告尚未完成',
+                'error': 'translated',
                 'task': task.to_dict()
             }), 400
 
@@ -930,7 +930,7 @@ def get_result_json(task_id: str):
         })
 
     except Exception as e:
-        logger.exception(f"获取报告生成结果失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -940,32 +940,32 @@ def get_result_json(task_id: str):
 @report_bp.route('/download/<task_id>', methods=['GET'])
 def download_report(task_id: str):
     """
-    下载已生成的报告HTML文件。
+    translatedHTMLtranslated。
 
-    参数:
-        task_id: 任务ID。
+    translated:
+        task_id: translatedID。
 
-    返回:
-        Response: HTML文件的附件下载响应。
+    translated:
+        Response: HTMLtranslated。
     """
     try:
         task = _get_task(task_id)
         if not task:
             return jsonify({
                 'success': False,
-                'error': '任务不存在'
+                'error': 'translated'
             }), 404
 
         if task.status != "completed" or not task.report_file_path:
             return jsonify({
                 'success': False,
-                'error': '报告尚未完成或尚未保存'
+                'error': 'translated'
             }), 400
 
         if not os.path.exists(task.report_file_path):
             return jsonify({
                 'success': False,
-                'error': '报告文件不存在或已被删除'
+                'error': 'translated'
             }), 404
 
         download_name = task.report_file_name or os.path.basename(task.report_file_path)
@@ -977,7 +977,7 @@ def download_report(task_id: str):
         )
 
     except Exception as e:
-        logger.exception(f"下载报告失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -987,13 +987,13 @@ def download_report(task_id: str):
 @report_bp.route('/cancel/<task_id>', methods=['POST'])
 def cancel_task(task_id: str):
     """
-    取消报告生成任务。
+    translated。
 
-    参数:
-        task_id: 需要被取消的任务ID。
+    translated:
+        task_id: translatedID。
 
-    返回:
-        Response: JSON，包含取消结果或错误信息。
+    translated:
+        Response: JSON，translated。
     """
     global current_task
 
@@ -1001,32 +1001,32 @@ def cancel_task(task_id: str):
         with task_lock:
             if current_task and current_task.task_id == task_id:
                 if current_task.status == "running":
-                    current_task.update_status("cancelled", 0, "用户取消任务")
+                    current_task.update_status("cancelled", 0, "translated")
                     current_task.publish_event('cancelled', {
-                        'message': '任务被用户主动终止',
+                        'message': 'translated',
                         'task': current_task.to_dict(),
                     })
                 current_task = None
             task = tasks_registry.get(task_id)
             if task and task.status == 'running':
-                task.update_status("cancelled", task.progress, "用户取消任务")
+                task.update_status("cancelled", task.progress, "translated")
                 task.publish_event('cancelled', {
-                    'message': '任务被用户主动终止',
+                    'message': 'translated',
                     'task': task.to_dict(),
                 })
 
                 return jsonify({
                     'success': True,
-                    'message': '任务已取消'
+                    'message': 'translated'
                 })
             else:
                 return jsonify({
                     'success': False,
-                    'error': '任务不存在或无法取消'
+                    'error': 'translated'
                 }), 404
 
     except Exception as e:
-        logger.exception(f"取消报告生成任务失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1036,16 +1036,16 @@ def cancel_task(task_id: str):
 @report_bp.route('/templates', methods=['GET'])
 def get_templates():
     """
-    获取可用模板列表，便于前端展示可选Markdown骨架。
+    translated，translatedMarkdowntranslated。
 
-    返回:
-        Response: JSON，列出模板名称/描述/大小。
+    translated:
+        Response: JSON，translated/translated/translated。
     """
     try:
         if not report_agent:
             return jsonify({
                 'success': False,
-                'error': 'Report Engine未初始化'
+                'error': 'Report Enginetranslated'
             }), 500
 
         template_dir = settings.TEMPLATE_DIR
@@ -1062,11 +1062,11 @@ def get_templates():
                         templates.append({
                             'name': filename.replace('.md', ''),
                             'filename': filename,
-                            'description': content.split('\n')[0] if content else '无描述',
+                            'description': content.split('\n')[0] if content else 'translated',
                             'size': len(content)
                         })
                     except Exception as e:
-                        logger.exception(f"读取模板失败 {filename}: {str(e)}")
+                        logger.exception(f"translated {filename}: {str(e)}")
 
         return jsonify({
             'success': True,
@@ -1075,72 +1075,72 @@ def get_templates():
         })
 
     except Exception as e:
-        logger.exception(f"获取可用模板列表失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
 
-# 错误处理
+# translated
 @report_bp.errorhandler(404)
 def not_found(error):
-    """404兜底处理：保证接口统一返回JSON结构"""
-    logger.exception(f"API端点不存在: {str(error)}")
+    """404translated：translatedJSONtranslated"""
+    logger.exception(f"APItranslated: {str(error)}")
     return jsonify({
         'success': False,
-        'error': 'API端点不存在'
+        'error': 'APItranslated'
     }), 404
 
 
 @report_bp.errorhandler(500)
 def internal_error(error):
-    """500兜底处理：捕获未被主动捕获的异常"""
-    logger.exception(f"服务器内部错误: {str(error)}")
+    """500translated：translated"""
+    logger.exception(f"translated: {str(error)}")
     return jsonify({
         'success': False,
-        'error': '服务器内部错误'
+        'error': 'translated'
     }), 500
 
 
 def clear_report_log():
     """
-    清空report.log文件，方便新任务只查看本次运行日志。
+    translatedreport.logtranslated，translated。
 
-    返回:
+    translated:
         None
     """
     try:
         log_file = settings.LOG_FILE
 
-        # 【修复】使用truncate而非重新打开，避免与logger的文件句柄冲突
-        # 追加模式打开，然后truncate，保持文件句柄有效
+        # 【translated】translatedtruncatetranslated，translatedloggertranslated
+        # translated，translatedtruncate，translated
         with open(log_file, 'r+', encoding='utf-8') as f:
-            f.truncate(0)  # 清空文件内容但不关闭文件
-            f.flush()      # 立即刷新
+            f.truncate(0)  # translated
+            f.flush()      # translated
 
-        logger.info(f"已清空日志文件: {log_file}")
+        logger.info(f"translated: {log_file}")
     except FileNotFoundError:
-        # 文件不存在，创建空文件
+        # translated，translated
         try:
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write('')
-            logger.info(f"创建日志文件: {log_file}")
+            logger.info(f"translated: {log_file}")
         except Exception as e:
-            logger.exception(f"创建日志文件失败: {str(e)}")
+            logger.exception(f"translated: {str(e)}")
     except Exception as e:
-        logger.exception(f"清空日志文件失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
 
 
 @report_bp.route('/log', methods=['GET'])
 def get_report_log():
     """
-    获取report.log内容，并按行去除空白返回。
+    translatedreport.logtranslated，translated。
 
-    【修复】优化大文件读取，添加错误处理和文件锁
+    【translated】translated，translated
 
-    返回:
-        Response: JSON，包含最新日志行数组。
+    translated:
+        Response: JSON，translated。
     """
     try:
         log_file = settings.LOG_FILE
@@ -1151,25 +1151,25 @@ def get_report_log():
                 'log_lines': []
             })
 
-        # 【修复】检查文件大小，避免读取过大文件导致内存问题
+        # 【translated】translated，translated
         file_size = os.path.getsize(log_file)
-        max_size = 10 * 1024 * 1024  # 10MB限制
+        max_size = 10 * 1024 * 1024  # 10MBtranslated
 
         if file_size > max_size:
-            # 文件过大，只读取最后10MB
+            # translated，translated10MB
             with open(log_file, 'rb') as f:
-                f.seek(-max_size, 2)  # 从文件末尾往前10MB
-                # 跳过可能不完整的第一行
+                f.seek(-max_size, 2)  # translated10MB
+                # translated
                 f.readline()
                 content = f.read().decode('utf-8', errors='replace')
             lines = content.splitlines()
-            logger.warning(f"日志文件过大 ({file_size} bytes)，仅返回最后 {max_size} bytes")
+            logger.warning(f"translated ({file_size} bytes)，translated {max_size} bytes")
         else:
-            # 正常大小，完整读取
+            # translated，translated
             with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
                 lines = f.readlines()
 
-        # 清理行尾的换行符和空行
+        # translated
         log_lines = [line.rstrip('\n\r') for line in lines if line.strip()]
 
         return jsonify({
@@ -1178,72 +1178,72 @@ def get_report_log():
         })
 
     except PermissionError as e:
-        logger.error(f"读取日志权限不足: {str(e)}")
+        logger.error(f"translated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': '读取日志权限不足'
+            'error': 'translated'
         }), 403
     except UnicodeDecodeError as e:
-        logger.error(f"日志文件编码错误: {str(e)}")
+        logger.error(f"translated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': '日志文件编码错误'
+            'error': 'translated'
         }), 500
     except Exception as e:
-        logger.exception(f"读取日志失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'读取日志失败: {str(e)}'
+            'error': f'translated: {str(e)}'
         }), 500
 
 
 @report_bp.route('/log/clear', methods=['POST'])
 def clear_log():
     """
-    手动清空日志，提供REST入口供前端一键重置。
+    translated，translatedRESTtranslated。
 
-    返回:
-        Response: JSON，标记是否清理成功。
+    translated:
+        Response: JSON，translated。
     """
     try:
         clear_report_log()
         return jsonify({
             'success': True,
-            'message': '日志已清空'
+            'message': 'translated'
         })
     except Exception as e:
-        logger.exception(f"清空日志失败: {str(e)}")
+        logger.exception(f"translated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'清空日志失败: {str(e)}'
+            'error': f'translated: {str(e)}'
         }), 500
 
 
 @report_bp.route('/export/md/<task_id>', methods=['GET'])
 def export_markdown(task_id: str):
     """
-    导出报告为 Markdown 格式。
+    translated Markdown translated。
 
-    基于已保存的 Document IR 调用 MarkdownRenderer，生成文件并返回下载。
+    translated Document IR translated MarkdownRenderer，translated。
     """
     try:
         task = tasks_registry.get(task_id)
         if not task:
             return jsonify({
                 'success': False,
-                'error': '任务不存在'
+                'error': 'translated'
             }), 404
 
         if task.status != 'completed':
             return jsonify({
                 'success': False,
-                'error': f'任务未完成，当前状态: {task.status}'
+                'error': f'translated，translated: {task.status}'
             }), 400
 
         if not task.ir_file_path or not os.path.exists(task.ir_file_path):
             return jsonify({
                 'success': False,
-                'error': 'IR文件不存在，无法生成Markdown'
+                'error': 'IRtranslated，translatedMarkdown'
             }), 404
 
         with open(task.ir_file_path, 'r', encoding='utf-8') as f:
@@ -1251,7 +1251,7 @@ def export_markdown(task_id: str):
 
         from .renderers import MarkdownRenderer
         renderer = MarkdownRenderer()
-        # 传入 ir_file_path，修复后的图表会自动保存到 IR 文件
+        # translated ir_file_path，translated IR translated
         markdown_text = renderer.render(document_ir, ir_file_path=task.ir_file_path)
 
         metadata = document_ir.get('metadata') if isinstance(document_ir, dict) else {}
@@ -1269,7 +1269,7 @@ def export_markdown(task_id: str):
         task.markdown_file_relative_path = os.path.relpath(task.markdown_file_path, os.getcwd())
         task.markdown_file_name = filename
 
-        logger.info(f"导出Markdown完成: {md_path}")
+        logger.info(f"translatedMarkdowntranslated: {md_path}")
 
         return send_file(
             task.markdown_file_path,
@@ -1279,85 +1279,85 @@ def export_markdown(task_id: str):
         )
 
     except Exception as e:
-        logger.exception(f"导出Markdown失败: {str(e)}")
+        logger.exception(f"translatedMarkdowntranslated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'导出Markdown失败: {str(e)}'
+            'error': f'translatedMarkdowntranslated: {str(e)}'
         }), 500
 
 
 @report_bp.route('/export/pdf/<task_id>', methods=['GET'])
 def export_pdf(task_id: str):
     """
-    导出报告为PDF格式。
+    translatedPDFtranslated。
 
-    从IR JSON文件生成优化的PDF，支持自动布局调整。
+    translatedIR JSONtranslatedPDF，translated。
 
-    参数:
-        task_id: 任务ID
+    translated:
+        task_id: translatedID
 
-    查询参数:
-        optimize: 是否启用布局优化（默认true）
+    translated:
+        optimize: translated（translatedtrue）
 
-    返回:
-        Response: PDF文件流或错误信息
+    translated:
+        Response: PDFtranslated
     """
     try:
-        # 检测 Pango 依赖
+        # translated Pango translated
         from .utils.dependency_check import check_pango_available
         pango_available, pango_message = check_pango_available()
         if not pango_available:
             return jsonify({
                 'success': False,
-                'error': 'PDF 导出功能不可用：缺少系统依赖',
-                'details': '请查看根目录 README.md “源码启动”的第二步（PDF 导出依赖）了解安装方法',
-                'help_url': 'https://github.com/666ghj/BettaFish#2-安装-pdf-导出所需系统依赖可选',
+                'error': 'PDF translated：translated',
+                'details': 'translated README.md “translated”translated（PDF translated）translated',
+                'help_url': 'https://github.com/666ghj/BettaFish#2-translated-pdf-translated',
                 'system_message': pango_message
             }), 503
 
-        # 获取任务信息
+        # translated
         task = tasks_registry.get(task_id)
         if not task:
             return jsonify({
                 'success': False,
-                'error': '任务不存在'
+                'error': 'translated'
             }), 404
 
-        # 检查任务是否完成
+        # translated
         if task.status != 'completed':
             return jsonify({
                 'success': False,
-                'error': f'任务未完成，当前状态: {task.status}'
+                'error': f'translated，translated: {task.status}'
             }), 400
 
-        # 获取IR文件路径
+        # translatedIRtranslated
         if not task.ir_file_path or not os.path.exists(task.ir_file_path):
             return jsonify({
                 'success': False,
-                'error': 'IR文件不存在'
+                'error': 'IRtranslated'
             }), 404
 
-        # 读取IR数据
+        # translatedIRtranslated
         with open(task.ir_file_path, 'r', encoding='utf-8') as f:
             document_ir = json.load(f)
 
-        # 检查是否启用布局优化
+        # translated
         optimize = request.args.get('optimize', 'true').lower() == 'true'
 
-        # 创建PDF渲染器并生成PDF
+        # translatedPDFtranslatedPDF
         from .renderers import PDFRenderer
         renderer = PDFRenderer()
 
-        logger.info(f"开始导出PDF，任务ID: {task_id}，布局优化: {optimize}")
+        logger.info(f"translatedPDF，translatedID: {task_id}，translated: {optimize}")
 
-        # 生成PDF字节流
+        # translatedPDFtranslated
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
 
-        # 确定下载文件名
+        # translated
         topic = document_ir.get('metadata', {}).get('topic', 'report')
         pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
-        # 返回PDF文件
+        # translatedPDFtranslated
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
@@ -1368,73 +1368,73 @@ def export_pdf(task_id: str):
         )
 
     except Exception as e:
-        logger.exception(f"导出PDF失败: {str(e)}")
+        logger.exception(f"translatedPDFtranslated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'导出PDF失败: {str(e)}'
+            'error': f'translatedPDFtranslated: {str(e)}'
         }), 500
 
 
 @report_bp.route('/export/pdf-from-ir', methods=['POST'])
 def export_pdf_from_ir():
     """
-    从IR JSON直接导出PDF（不需要任务ID）。
+    translatedIR JSONtranslatedPDF（translatedID）。
 
-    适用于前端直接传递IR数据的场景。
+    translatedIRtranslated。
 
-    请求体:
+    translated:
         {
             "document_ir": {...},  // Document IR JSON
-            "optimize": true       // 是否启用布局优化（可选）
+            "optimize": true       // translated（translated）
         }
 
-    返回:
-        Response: PDF文件流或错误信息
+    translated:
+        Response: PDFtranslated
     """
     try:
-        # 检测 Pango 依赖
+        # translated Pango translated
         from .utils.dependency_check import check_pango_available
         pango_available, pango_message = check_pango_available()
         if not pango_available:
             return jsonify({
                 'success': False,
-                'error': 'PDF 导出功能不可用：缺少系统依赖',
-                'details': '请查看根目录 README.md “源码启动”的第二步（PDF 导出依赖）了解安装方法',
-                'help_url': 'https://github.com/666ghj/BettaFish#2-安装-pdf-导出所需系统依赖可选',
+                'error': 'PDF translated：translated',
+                'details': 'translated README.md “translated”translated（PDF translated）translated',
+                'help_url': 'https://github.com/666ghj/BettaFish#2-translated-pdf-translated',
                 'system_message': pango_message
             }), 503
 
         data = request.get_json() or {}
         if not isinstance(data, dict):
-            logger.warning("export_pdf_from_ir 请求体不是JSON对象")
+            logger.warning("export_pdf_from_ir translatedJSONtranslated")
             return jsonify({
                 'success': False,
-                'error': '请求体必须是JSON对象'
+                'error': 'translatedJSONtranslated'
             }), 400
 
         if not data or 'document_ir' not in data:
             return jsonify({
                 'success': False,
-                'error': '缺少document_ir参数'
+                'error': 'translateddocument_irtranslated'
             }), 400
 
         document_ir = data['document_ir']
         optimize = data.get('optimize', True)
 
-        # 创建PDF渲染器并生成PDF
+        # translatedPDFtranslatedPDF
         from .renderers import PDFRenderer
         renderer = PDFRenderer()
 
-        logger.info(f"从IR直接导出PDF，布局优化: {optimize}")
+        logger.info(f"translatedIRtranslatedPDF，translated: {optimize}")
 
-        # 生成PDF字节流
+        # translatedPDFtranslated
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
 
-        # 确定下载文件名
+        # translated
         topic = document_ir.get('metadata', {}).get('topic', 'report')
         pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
-        # 返回PDF文件
+        # translatedPDFtranslated
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
@@ -1445,8 +1445,9 @@ def export_pdf_from_ir():
         )
 
     except Exception as e:
-        logger.exception(f"从IR导出PDF失败: {str(e)}")
+        logger.exception(f"translatedIRtranslatedPDFtranslated: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'导出PDF失败: {str(e)}'
+            'error': f'translatedPDFtranslated: {str(e)}'
         }), 500
+

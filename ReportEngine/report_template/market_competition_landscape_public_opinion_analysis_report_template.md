@@ -1,0 +1,28 @@
+### **Market Competition Landscape Public Opinion Analysis Report Template**
+
+- **1.0 Summary of Market Competitive Situation**
+  - 1.1 Core Conclusions
+  - 1.2 Key Data Comparison
+  - 1.3 Core Strategy Recommendations
+- **2.0 Comparative Analysis of Market Share of Voice**
+  - 2.1 Overall Share of Voice (SOV)
+  - 2.2 Trend Comparison
+- **3.0 Timeline of Key Market Dynamics in This Period**
+  - 3.1 Our Key Actions
+  - 3.2 Competitors' Key Actions
+- **4.0 Comparison of Product Reputation and User Feedback**
+  - 4.1 Sentiment Distribution Comparison
+  - 4.2 Pros and Cons Comparison
+  - 4.3 Discussion Heat Comparison of Core Features/Selling Points
+- **5.0 Comparison of Marketing and Communication Strategies**
+  - 5.1 Analysis of Major Marketing Campaigns
+  - 5.2 Comparison of Core Communication Topics
+  - 5.3 Analysis of KOL/Media Collaboration Strategies
+- **6.0 Identification of Competitive Opportunities and Threats**
+  - 6.1 Market Opportunity Points
+  - 6.2 Potential Threats
+  - 6.3 Recommendations for Differentiated Positioning
+- **7.0 Summary and Action Recommendations**
+  - 7.1 Competitive Landscape Summary
+  - 7.2 Learning and Benchmarking
+  - 7.3 Response and Countermeasures
