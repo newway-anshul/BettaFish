@@ -1,6 +1,6 @@
 """
-文本处理工具函数
-用于清理LLM输出、解析JSON等
+Text processing utility functions
+Used for cleaning LLM output, parsing JSON, etc.
 """
 
 import re
@@ -11,15 +11,15 @@ from json.decoder import JSONDecodeError
 
 def clean_json_tags(text: str) -> str:
     """
-    清理文本中的JSON标签
+    Remove JSON tags from text
     
     Args:
-        text: 原始文本
+        text: Raw text
         
     Returns:
-        清理后的文本
+        Cleaned text
     """
-    # 移除```json 和 ```标签
+    # Remove ```json and ``` tags
     text = re.sub(r'```json\s*', '', text)
     text = re.sub(r'```\s*$', '', text)
     text = re.sub(r'```', '', text)
@@ -29,15 +29,15 @@ def clean_json_tags(text: str) -> str:
 
 def clean_markdown_tags(text: str) -> str:
     """
-    清理文本中的Markdown标签
+    Remove Markdown tags from text
     
     Args:
-        text: 原始文本
+        text: Raw text
         
     Returns:
-        清理后的文本
+        Cleaned text
     """
-    # 移除```markdown 和 ```标签
+    # Remove ```markdown and ``` tags
     text = re.sub(r'```markdown\s*', '', text)
     text = re.sub(r'```\s*$', '', text)
     text = re.sub(r'```', '', text)
@@ -47,33 +47,33 @@ def clean_markdown_tags(text: str) -> str:
 
 def remove_reasoning_from_output(text: str) -> str:
     """
-    移除输出中的推理过程文本
+    Remove reasoning process text from output
     
     Args:
-        text: 原始文本
+        text: Raw text
         
     Returns:
-        清理后的文本
+        Cleaned text
     """
-    # 查找JSON开始位置
+    # Find the JSON start position
     json_start = -1
     
-    # 尝试找到第一个 { 或 [
+    # Try to find the first { or [
     for i, char in enumerate(text):
         if char in '{[':
             json_start = i
             break
     
     if json_start != -1:
-        # 从JSON开始位置截取
+        # Slice from the JSON start position
         return text[json_start:].strip()
     
-    # 如果没有找到JSON标记，尝试其他方法
-    # 移除常见的推理标识
+    # If no JSON marker found, try other methods
+    # Remove common reasoning identifiers
     patterns = [
-        r'(?:reasoning|推理|思考|分析)[:：]\s*.*?(?=\{|\[)',  # 移除推理部分
-        r'(?:explanation|解释|说明)[:：]\s*.*?(?=\{|\[)',   # 移除解释部分
-        r'^.*?(?=\{|\[)',  # 移除JSON前的所有文本
+        r'(?:reasoning|推理|思考|分析)[:：]\s*.*?(?=\{|\[)',  # Remove reasoning section
+        r'(?:explanation|解释|说明)[:：]\s*.*?(?=\{|\[)',   # Remove explanation section
+        r'^.*?(?=\{|\[)',  # Remove all text before JSON
     ]
     
     for pattern in patterns:
@@ -84,13 +84,13 @@ def remove_reasoning_from_output(text: str) -> str:
 
 def extract_clean_response(text: str) -> Dict[str, Any]:
     """
-    提取并清理响应中的JSON内容
+    Extract and clean JSON content from a response
     
     Args:
-        text: 原始响应文本
+        text: Raw response text
         
     Returns:
-        解析后的JSON字典
+        Parsed JSON dictionary
     """
     # 清理文本
     cleaned_text = clean_json_tags(text)
@@ -128,118 +128,118 @@ def extract_clean_response(text: str) -> Dict[str, Any]:
         except JSONDecodeError:
             pass
     
-    # 如果所有方法都失败，返回错误信息
-    print(f"无法解析JSON响应: {cleaned_text[:200]}...")
-    return {"error": "JSON解析失败", "raw_text": cleaned_text}
+    # If all methods fail, return an error message
+    print(f"Failed to parse JSON response: {cleaned_text[:200]}...")
+    return {"error": "JSON parsing failed", "raw_text": cleaned_text}
 
 
 def fix_incomplete_json(text: str) -> str:
     """
-    修复不完整的JSON响应
+    Repair incomplete JSON responses
     
     Args:
-        text: 原始文本
+        text: Raw text
         
     Returns:
-        修复后的JSON文本，如果无法修复则返回空字符串
+        Repaired JSON text, or empty string if repair is not possible
     """
-    # 移除多余的逗号和空白
+    # Remove trailing commas and extra whitespace
     text = re.sub(r',\s*}', '}', text)
     text = re.sub(r',\s*]', ']', text)
     
-    # 检查是否已经是有效的JSON
+    # Check if already valid JSON
     try:
         json.loads(text)
         return text
     except JSONDecodeError:
         pass
     
-    # 检查是否缺少开头的数组符号
+    # Check if the opening array bracket is missing
     if text.strip().startswith('{') and not text.strip().startswith('['):
-        # 如果以对象开始，尝试包装成数组
+        # If it starts with an object, try wrapping in an array
         if text.count('{') > 1:
-            # 多个对象，包装成数组
+            # Multiple objects, wrap in array
             text = '[' + text + ']'
         else:
-            # 单个对象，包装成数组
+            # Single object, wrap in array
             text = '[' + text + ']'
     
-    # 检查是否缺少结尾的数组符号
+    # Check if the closing array bracket is missing
     if text.strip().endswith('}') and not text.strip().endswith(']'):
-        # 如果以对象结束，尝试包装成数组
+        # If it ends with an object, try wrapping in an array
         if text.count('}') > 1:
-            # 多个对象，包装成数组
+            # Multiple objects, wrap in array
             text = '[' + text + ']'
         else:
-            # 单个对象，包装成数组
+            # Single object, wrap in array
             text = '[' + text + ']'
     
-    # 检查括号是否匹配
+    # Check if brackets are balanced
     open_braces = text.count('{')
     close_braces = text.count('}')
     open_brackets = text.count('[')
     close_brackets = text.count(']')
     
-    # 修复不匹配的括号
+    # Fix unbalanced brackets
     if open_braces > close_braces:
         text += '}' * (open_braces - close_braces)
     if open_brackets > close_brackets:
         text += ']' * (open_brackets - close_brackets)
     
-    # 验证修复后的JSON是否有效
+    # Validate the repaired JSON
     try:
         json.loads(text)
         return text
     except JSONDecodeError:
-        # 如果仍然无效，尝试更激进的修复
+        # If still invalid, try a more aggressive repair
         return fix_aggressive_json(text)
 
 
 def fix_aggressive_json(text: str) -> str:
     """
-    更激进的JSON修复方法
+    More aggressive JSON repair method
     
     Args:
-        text: 原始文本
+        text: Raw text
         
     Returns:
-        修复后的JSON文本
+        Repaired JSON text
     """
-    # 查找所有可能的JSON对象
+    # Find all possible JSON objects
     objects = re.findall(r'\{[^{}]*\}', text)
     
     if len(objects) >= 2:
-        # 如果有多个对象，包装成数组
+        # Multiple objects, wrap in array
         return '[' + ','.join(objects) + ']'
     elif len(objects) == 1:
-        # 如果只有一个对象，包装成数组
+        # Single object, wrap in array
         return '[' + objects[0] + ']'
     else:
-        # 如果没有找到对象，返回空数组
+        # No objects found, return empty array
         return '[]'
 
 
 def update_state_with_search_results(search_results: List[Dict[str, Any]], 
                                    paragraph_index: int, state: Any) -> Any:
     """
-    将搜索结果更新到状态中
+    Update state with search results
     
     Args:
-        search_results: 搜索结果列表
-        paragraph_index: 段落索引
-        state: 状态对象
+        search_results: List of search results
+        paragraph_index: Paragraph index
+        state: State object
         
     Returns:
-        更新后的状态对象
+        Updated state object
     """
     if 0 <= paragraph_index < len(state.paragraphs):
-        # 获取最后一次搜索的查询（假设是当前查询）
+        # Get the query from the last search (assumed to be the current query)
         current_query = ""
         if search_results:
-            # 从搜索结果推断查询（这里需要改进以获取实际查询）
-            current_query = "搜索查询"
+            # Infer query from search results (needs improvement to get the actual query)
+            current_query = "search query"
         
-        # 添加搜索结果到状态
+        # Add search results to state
         state.paragraphs[paragraph_index].research.add_search_results(
             current_query, search_results
         )

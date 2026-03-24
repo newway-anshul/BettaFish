@@ -1,6 +1,6 @@
 """
-工具调用模块
-提供外部工具接口，如本地数据库查询等
+Tool invocation module
+Provides external tool interfaces, such as local database queries, etc.
 """
 
 from .search import (

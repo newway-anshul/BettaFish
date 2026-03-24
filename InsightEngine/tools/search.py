@@ -1,26 +1,33 @@
 """
-专为 AI Agent 设计的本地舆情数据库查询工具集 (MediaCrawlerDB)
+Local public-opinion database query toolkit designed for AI Agents (MediaCrawlerDB)
 
-版本: 3.0
-最后更新: 2025-08-23
+Version: 3.0
+Last updated: 2025-08-23
 
-此脚本将复杂的本地MySQL数据库查询功能封装成一系列目标明确、参数清晰的独立工具，
-专为AI Agent调用而设计。Agent只需根据任务意图（如搜索热点、全局搜索话题、
-按时间范围分析、获取评论）选择合适的工具，无需编写复杂的SQL语句。
+This script encapsulates complex local MySQL query logic into a set of independent
+tools with clear goals and parameters. It is designed for AI Agent calls: the
+Agent only needs to select the right tool based on intent (for example, searching
+hot topics, global topic search, time-range analysis, or fetching comments)
+without writing complex SQL.
 
-V3.0 核心更新:
-- 智能热度计算: `search_hot_content`不再需要`sort_by`参数，改为内部使用统一的加权热度算法，
-  综合点赞、评论、分享、观看等数据计算热度分值，使结果更智能、更符合综合热度。
-- 新增平台精搜工具: 新增 `search_topic_on_platform` 工具，作为特例，
-  允许Agent在特定平台（B站、微博等七大平台）上对某一话题进行精确搜索，并支持时间筛选。
-- 结构优化: 调整了数据结构与函数文档，以适应新功能。
+V3.0 key updates:
+- Smart hotness calculation: `search_hot_content` no longer needs a `sort_by`
+    parameter. It now uses a unified weighted hotness algorithm internally.
+- New platform-focused search tool: added `search_topic_on_platform` to support
+    precise topic search on a specific platform (Bilibili, Weibo, and five others)
+    with optional date filtering.
+- Structural optimization: updated data structures and function docs to support
+    the new features.
 
-主要工具:
-- search_hot_content: 查找指定时间范围内的综合热度最高的内容。
-- search_topic_globally: 在整个数据库中全局搜索与特定话题相关的所有内容和评论。
-- search_topic_by_date: 在指定的历史日期范围内搜索与特定话题相关的内容。
-- get_comments_for_topic: 专门提取公众对于某一特定话题的评论数据。
-- search_topic_on_platform: 在指定的单个社交媒体平台上搜索特定话题。
+Main tools:
+- search_hot_content: Find the most popular content within a specified time range.
+- search_topic_globally: Search all content and comments related to a topic
+    across the full database.
+- search_topic_by_date: Search topic-related content within a specific historical
+    date range.
+- get_comments_for_topic: Extract public comments for a specific topic.
+- search_topic_on_platform: Search a specific topic on one selected social
+    platform.
 """
 
 import os
@@ -33,11 +40,11 @@ from ..utils.db import fetch_all
 from datetime import datetime, timedelta, date
 from InsightEngine.utils.config import settings
 
-# --- 1. 数据结构定义 ---
+# --- 1. Data structure definitions ---
 
 @dataclass
 class QueryResult:
-    """统一的数据库查询结果数据类"""
+    """Unified database query result data class."""
     platform: str
     content_type: str
     title_or_content: str
@@ -51,33 +58,33 @@ class QueryResult:
 
 @dataclass
 class DBResponse:
-    """封装工具的完整返回结果"""
+    """Complete wrapped response returned by a tool."""
     tool_name: str
     parameters: Dict[str, Any]
     results: List[QueryResult] = field(default_factory=list)
     results_count: int = 0
     error_message: Optional[str] = None
 
-# --- 2. 核心客户端与专用工具集 ---
+# --- 2. Core client and specialized toolset ---
 
 class MediaCrawlerDB:
-    """包含多种专用舆情数据库查询工具的客户端"""
-    # 权重定义
+    """Client containing multiple specialized public-opinion database tools."""
+    # Weight definitions
     W_LIKE = 1.0
     W_COMMENT = 5.0
-    W_SHARE = 10.0  # 分享/转发/收藏/投币等高价值互动
+    W_SHARE = 10.0  # Shares/forwards/favorites/coins and other high-value engagement
     W_VIEW = 0.1
     W_DANMAKU = 0.5
 
     def __init__(self):
         """
-        初始化客户端。
+        Initialize the client.
         """
         pass
         
     def _execute_query(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
         try:
-            # 获取或创建event loop
+            # Get or create event loop
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_closed():
@@ -87,11 +94,11 @@ class MediaCrawlerDB:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # 直接运行协程
+            # Run coroutine directly
             return loop.run_until_complete(fetch_all(query, params))
         
         except Exception as e:
-            logger.exception(f"数据库查询时发生错误: {e}")
+            logger.exception(f"Database query error: {e}")
             return []
 
     @staticmethod
@@ -116,7 +123,7 @@ class MediaCrawlerDB:
         return columns
 
     def _extract_engagement(self, row: Dict[str, Any]) -> Dict[str, int]:
-        """从数据行中提取并统一互动指标"""
+        """Extract and normalize engagement metrics from a data row."""
         engagement = {}
         mapping = { 'likes': ['liked_count', 'like_count', 'voteup_count', 'comment_like_count'], 'comments': ['video_comment', 'comments_count', 'comment_count', 'total_replay_num', 'sub_comment_count'], 'shares': ['video_share_count', 'shared_count', 'share_count', 'total_forwards'], 'views': ['video_play_count', 'viewd_count'], 'favorites': ['video_favorite_count', 'collected_count'], 'coins': ['video_coin_count'], 'danmaku': ['video_danmaku'], }
         for key, potential_cols in mapping.items():
@@ -133,22 +140,22 @@ class MediaCrawlerDB:
         limit: int = 50
     ) -> DBResponse:
         """
-        【工具】查找热点内容: 获取最近一段时间内综合热度最高的内容。
+        [Tool] Search hot content: fetch top content by composite hotness in a recent period.
 
         Args:
-            time_period (Literal['24h', 'week', 'year']): 时间范围，默认为 'week'。
-            limit (int): 返回结果的最大数量，默认为 50。
+            time_period (Literal['24h', 'week', 'year']): Time range, default is 'week'.
+            limit (int): Maximum number of returned items, default is 50.
 
         Returns:
-            DBResponse: 包含按综合热度排序后的内容列表。
+            DBResponse: Content list sorted by composite hotness.
         """
         params_for_log = {'time_period': time_period, 'limit': limit}
-        logger.info(f"--- TOOL: 查找热点内容 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: Search Hot Content (params: {params_for_log}) ---")
         
         now = datetime.now()
         start_time = now - timedelta(days={'24h': 1, 'week': 7}.get(time_period, 365))
 
-        # 定义各平台的热度计算SQL片段
+        # Define per-platform SQL hotness formulas
         hotness_formulas = {
             'bilibili_video': f"(COALESCE(CAST(liked_count AS UNSIGNED), 0) * {self.W_LIKE} + COALESCE(CAST(video_comment AS UNSIGNED), 0) * {self.W_COMMENT} + COALESCE(CAST(video_share_count AS UNSIGNED), 0) * {self.W_SHARE} + COALESCE(CAST(video_favorite_count AS UNSIGNED), 0) * {self.W_SHARE} + COALESCE(CAST(video_coin_count AS UNSIGNED), 0) * {self.W_SHARE} + COALESCE(CAST(video_danmaku AS UNSIGNED), 0) * {self.W_DANMAKU} + COALESCE(CAST(video_play_count AS DECIMAL(20,2)), 0) * {self.W_VIEW})",
             'douyin_aweme':   f"(COALESCE(CAST(liked_count AS UNSIGNED), 0) * {self.W_LIKE} + COALESCE(CAST(comment_count AS UNSIGNED), 0) * {self.W_COMMENT} + COALESCE(CAST(share_count AS UNSIGNED), 0) * {self.W_SHARE} + COALESCE(CAST(collected_count AS UNSIGNED), 0) * {self.W_SHARE})",
@@ -185,24 +192,25 @@ class MediaCrawlerDB:
         return DBResponse("search_hot_content", params_for_log, results=formatted_results, results_count=len(formatted_results))    
 
     def _wrap_query_field_with_dialect(self, field: str) -> str:
-        """根据数据库方言包装SQL查询"""
+        """Wrap SQL query fields according to database dialect."""
         if settings.DB_DIALECT == 'postgresql':
             return f'"{field}"'
         return f'`{field}`'
 
     def search_topic_globally(self, topic: str, limit_per_table: int = 100) -> DBResponse:
         """
-        【工具】全局话题搜索: 在数据库中（内容、评论、标签、来源关键字）全面搜索指定话题。
+        [Tool] Global topic search: search a topic across content, comments, tags,
+        and source keywords in the entire database.
 
         Args:
-            topic (str): 要搜索的话题关键词。
-            limit_per_table (int): 从每个相关表中返回的最大记录数，默认为 100。
+            topic (str): Topic keyword to search.
+            limit_per_table (int): Max records from each related table, default 100.
 
         Returns:
-            DBResponse: 包含所有匹配结果的聚合列表。
+            DBResponse: Aggregated list of all matched results.
         """
         params_for_log = {'topic': topic, 'limit_per_table': limit_per_table}
-        logger.info(f"--- TOOL: 全局话题搜索 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: Global Topic Search (params: {params_for_log}) ---")
         
         search_term, all_results = f"%{topic}%", []
         search_configs = { 'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'bilibili_video_comment': {'fields': ['content'], 'type': 'comment'}, 'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'douyin_aweme_comment': {'fields': ['content'], 'type': 'comment'}, 'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'kuaishou_video_comment': {'fields': ['content'], 'type': 'comment'}, 'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note'}, 'weibo_note_comment': {'fields': ['content'], 'type': 'comment'}, 'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note'}, 'xhs_note_comment': {'fields': ['content'], 'type': 'comment'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content'}, 'zhihu_comment': {'fields': ['content'], 'type': 'comment'}, 'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note'}, 'tieba_comment': {'fields': ['content'], 'type': 'comment'}, 'daily_news': {'fields': ['title'], 'type': 'news'}, }
@@ -235,24 +243,25 @@ class MediaCrawlerDB:
 
     def search_topic_by_date(self, topic: str, start_date: str, end_date: str, limit_per_table: int = 100) -> DBResponse:
         """
-        【工具】按日期搜索话题: 在明确的历史时间段内，搜索与特定话题相关的内容。
+        [Tool] Search topic by date: search topic-related content within a specific
+        historical time range.
 
         Args:
-            topic (str): 要搜索的话题关键词。
-            start_date (str): 开始日期，格式 'YYYY-MM-DD'。
-            end_date (str): 结束日期，格式 'YYYY-MM-DD'。
-            limit_per_table (int): 从每个相关表中返回的最大记录数，默认为 100。
+            topic (str): Topic keyword to search.
+            start_date (str): Start date, format 'YYYY-MM-DD'.
+            end_date (str): End date, format 'YYYY-MM-DD'.
+            limit_per_table (int): Max records from each related table, default 100.
 
         Returns:
-            DBResponse: 包含在指定日期范围内找到的结果的聚合列表。
+            DBResponse: Aggregated list of results found in the date range.
         """
         params_for_log = {'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit_per_table': limit_per_table}
-        logger.info(f"--- TOOL: 按日期搜索话题 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: Search Topic By Date (params: {params_for_log}) ---")
         
         try:
             start_dt, end_dt = datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         except ValueError:
-            return DBResponse("search_topic_by_date", params_for_log, error_message="日期格式错误，请使用 'YYYY-MM-DD' 格式。")
+            return DBResponse("search_topic_by_date", params_for_log, error_message="Invalid date format. Please use 'YYYY-MM-DD'.")
         
         search_term, all_results = f"%{topic}%", []
         search_configs = {
@@ -290,17 +299,18 @@ class MediaCrawlerDB:
         
     def get_comments_for_topic(self, topic: str, limit: int = 500) -> DBResponse:
         """
-        【工具】获取话题评论: 专门搜索并返回所有平台中与特定话题相关的公众评论数据。
+        [Tool] Get comments for topic: specifically search and return public comments
+        related to a given topic across all platforms.
 
         Args:
-            topic (str): 要搜索的话题关键词。
-            limit (int): 返回评论的总数量上限，默认为 500。
+            topic (str): Topic keyword to search.
+            limit (int): Upper limit of returned comments, default 500.
 
         Returns:
-            DBResponse: 包含匹配的评论列表。
+            DBResponse: List of matched comments.
         """
         params_for_log = {'topic': topic, 'limit': limit}
-        logger.info(f"--- TOOL: 获取话题评论 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: Get Comments For Topic (params: {params_for_log}) ---")
         
         search_term = f"%{topic}%"
         comment_tables = ['bilibili_video_comment', 'douyin_aweme_comment', 'kuaishou_video_comment', 'weibo_note_comment', 'xhs_note_comment', 'zhihu_comment', 'tieba_comment']
@@ -334,25 +344,26 @@ class MediaCrawlerDB:
         limit: int = 20
     ) -> DBResponse:
         """
-        【工具】平台定向搜索: (新增) 在指定的单个社交媒体平台上搜索特定话题。
+        [Tool] Platform-focused search: (new) search a specific topic on one selected
+        social media platform.
 
         Args:
-            platform (Literal['bilibili', ...]): 要搜索的平台，必须是七个支持的平台之一。
-            topic (str): 要搜索的话题关键词。
-            start_date (Optional[str]): 开始日期，格式 'YYYY-MM-DD'。默认为None。
-            end_date (Optional[str]): 结束日期，格式 'YYYY-MM-DD'。默认为None。
-            limit (int): 返回结果的最大数量，默认为 20。
+            platform (Literal['bilibili', ...]): Target platform, must be one of the seven supported platforms.
+            topic (str): Topic keyword to search.
+            start_date (Optional[str]): Start date, format 'YYYY-MM-DD'. Default is None.
+            end_date (Optional[str]): End date, format 'YYYY-MM-DD'. Default is None.
+            limit (int): Maximum number of returned items, default 20.
 
         Returns:
-            DBResponse: 包含在该平台找到的结果列表。
+            DBResponse: List of results found on the selected platform.
         """
         params_for_log = {'platform': platform, 'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit': limit}
-        logger.info(f"--- TOOL: 平台定向搜索 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: Platform Topic Search (params: {params_for_log}) ---")
 
         all_configs = { 'bilibili': [{'table': 'bilibili_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'}, {'table': 'bilibili_video_comment', 'fields': ['content'], 'type': 'comment'}], 'douyin': [{'table': 'douyin_aweme', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'douyin_aweme_comment', 'fields': ['content'], 'type': 'comment'}], 'kuaishou': [{'table': 'kuaishou_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'kuaishou_video_comment', 'fields': ['content'], 'type': 'comment'}], 'weibo': [{'table': 'weibo_note', 'fields': ['content', 'source_keyword'], 'type': 'note', 'time_col': 'create_date_time', 'time_type': 'str'}, {'table': 'weibo_note_comment', 'fields': ['content'], 'type': 'comment'}], 'xhs': [{'table': 'xhs_note', 'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'}, {'table': 'xhs_note_comment', 'fields': ['content'], 'type': 'comment'}], 'zhihu': [{'table': 'zhihu_content', 'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'}, {'table': 'zhihu_comment', 'fields': ['content'], 'type': 'comment'}], 'tieba': [{'table': 'tieba_note', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'}, {'table': 'tieba_comment', 'fields': ['content'], 'type': 'comment'}] }
         
         if platform not in all_configs:
-            return DBResponse("search_topic_on_platform", params_for_log, error_message=f"不支持的平台: {platform}")
+            return DBResponse("search_topic_on_platform", params_for_log, error_message=f"Unsupported platform: {platform}")
 
         search_term, all_results = f"%{topic}%", []
         platform_configs = all_configs[platform]
@@ -362,7 +373,7 @@ class MediaCrawlerDB:
             try:
                 start_dt, end_dt = datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
             except ValueError:
-                return DBResponse("search_topic_on_platform", params_for_log, error_message="日期格式错误，请使用 'YYYY-MM-DD' 格式。")
+                return DBResponse("search_topic_on_platform", params_for_log, error_message="Invalid date format. Please use 'YYYY-MM-DD'.")
         else:
             start_dt, end_dt = None, None
 
@@ -396,20 +407,20 @@ class MediaCrawlerDB:
         
         return DBResponse("search_topic_on_platform", params_for_log, results=all_results, results_count=len(all_results))
 
-# --- 3. 测试与使用示例 ---
+# --- 3. Testing and usage examples ---
 def print_response_summary(response: DBResponse):
-    """简化的打印函数，用于展示测试结果"""
+    """Simplified print helper for displaying test results."""
     if response.error_message:
-        logger.info(f"工具 '{response.tool_name}' 执行出错: {response.error_message}")
+        logger.info(f"Tool '{response.tool_name}' failed: {response.error_message}")
         return
 
     params_str = ", ".join(f"{k}='{v}'" for k, v in response.parameters.items())
-    logger.info(f"查询: 工具='{response.tool_name}', 参数=[{params_str}]")
-    logger.info(f"找到 {response.results_count} 条相关记录。")
+    logger.info(f"Query: tool='{response.tool_name}', params=[{params_str}]")
+    logger.info(f"Found {response.results_count} related records.")
     
-    # 统一为一个消息输出
+    # Output as a single structured message
     output_lines = []
-    output_lines.append("==== 查询结果预览（最多前5条） ====")
+    output_lines.append("==== Query Result Preview (up to first 5) ====")
     if response.results and len(response.results) > 0:
         for idx, res in enumerate(response.results[:5], 1):
             content_preview = (res.title_or_content.replace('\n', ' ')[:70] + '...') if res.title_or_content and len(res.title_or_content) > 70 else (res.title_or_content or '')
@@ -420,13 +431,13 @@ def print_response_summary(response: DBResponse):
             engagement_str = ", ".join(f"{k}: {v}" for k, v in engagement_dict.items() if v)
             output_lines.append(
                 f"{idx}. [{res.platform.upper()}/{res.content_type}] {content_preview}\n"
-                f"   作者: {author_str} | 时间: {publish_time_str}"
-                f"{hotness_str} | 源关键词: '{res.source_keyword or 'N/A'}'\n"
-                f"   链接: {res.url or 'N/A'}\n"
-                f"   互动数据: {{{engagement_str}}}"
+                f"   Author: {author_str} | Time: {publish_time_str}"
+                f"{hotness_str} | Source keyword: '{res.source_keyword or 'N/A'}'\n"
+                f"   Link: {res.url or 'N/A'}\n"
+                f"   Engagement: {{{engagement_str}}}"
             )
     else:
-        output_lines.append("暂无相关内容。")
+        output_lines.append("No related content found.")
     output_lines.append("=" * 60)
     logger.info('\n'.join(output_lines))
 
@@ -434,30 +445,30 @@ if __name__ == "__main__":
     
     try:
         db_agent_tools = MediaCrawlerDB()
-        logger.info("数据库工具初始化成功，开始执行测试场景...\n")
+        logger.info("Database tools initialized successfully. Running test scenarios...\n")
         
-        # 场景1: (新) 查找过去一周综合热度最高的内容 (不再需要sort_by)
+        # Scenario 1: (new) find top composite-hotness content in the past week
         response1 = db_agent_tools.search_hot_content(time_period='week', limit=5)
         print_response_summary(response1)
 
-        # 场景2: 查找过去24小时内综合热度最高的内容
+        # Scenario 2: find top composite-hotness content in the past 24 hours
         response2 = db_agent_tools.search_hot_content(time_period='24h', limit=5)
         print_response_summary(response2)
 
-        # 场景3: 全局搜索"罗永浩"
-        response3 = db_agent_tools.search_topic_globally(topic="罗永浩", limit_per_table=2)
+        # Scenario 3: global search for "Luo Yonghao"
+        response3 = db_agent_tools.search_topic_globally(topic="Luo Yonghao", limit_per_table=2)
         print_response_summary(response3)
 
-        # 场景4: (新增) 在B站上精确搜索"论文"
-        response4 = db_agent_tools.search_topic_on_platform(platform='bilibili', topic="论文", limit=5)
+        # Scenario 4: (new) precise search for "paper" on Bilibili
+        response4 = db_agent_tools.search_topic_on_platform(platform='bilibili', topic="paper", limit=5)
         print_response_summary(response4)
 
-        # 场景5: (新增) 在微博上精确搜索 "许凯" 在特定一天内的内容
-        response5 = db_agent_tools.search_topic_on_platform(platform='weibo', topic="许凯", start_date='2025-08-22', end_date='2025-08-22', limit=5)
+        # Scenario 5: (new) precise search for "Xu Kai" on Weibo within one day
+        response5 = db_agent_tools.search_topic_on_platform(platform='weibo', topic="Xu Kai", start_date='2025-08-22', end_date='2025-08-22', limit=5)
         print_response_summary(response5)
 
     except ValueError as e:
-        logger.exception(f"初始化失败: {e}")
-        logger.exception("请确保相关的数据库环境变量已正确设置, 或在代码中直接提供连接信息。")
+        logger.exception(f"Initialization failed: {e}")
+        logger.exception("Please ensure related database environment variables are set correctly, or provide connection settings directly in code.")
     except Exception as e:
-        logger.exception(f"测试过程中发生未知错误: {e}")
+        logger.exception(f"Unknown error during testing: {e}")
