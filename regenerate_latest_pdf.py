@@ -1,5 +1,5 @@
 """
-使用新的SVG矢量图表功能重新生成最新报告的PDF
+Regenerate the latest report PDF using the new SVG vector chart feature.
 """
 
 import json
@@ -8,69 +8,70 @@ from pathlib import Path
 from datetime import datetime
 from loguru import logger
 
-# 添加项目路径
+# Add project path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from ReportEngine.renderers import PDFRenderer
 
 def find_latest_report():
     """
-    在 `final_reports/ir` 中查找最新的报告 IR JSON。
+    Find the latest report IR JSON in `final_reports/ir`.
 
-    按修改时间倒序选择第一条，若目录或文件缺失则记录错误并返回 None。
+    Select the first file by descending modification time. If the directory
+    or files are missing, log an error and return None.
 
-    返回:
-        Path | None: 最新 IR 文件路径；未找到则为 None。
+    Returns:
+        Path | None: Latest IR file path, or None if not found.
     """
     ir_dir = Path("final_reports/ir")
 
     if not ir_dir.exists():
-        logger.error(f"报告目录不存在: {ir_dir}")
+        logger.error(f"Report directory does not exist: {ir_dir}")
         return None
 
-    # 获取所有JSON文件并按修改时间排序
+    # Get all JSON files and sort by modification time
     json_files = sorted(ir_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True)
 
     if not json_files:
-        logger.error("未找到报告文件")
+        logger.error("No report files found")
         return None
 
     latest_file = json_files[0]
-    logger.info(f"找到最新报告: {latest_file.name}")
+    logger.info(f"Latest report found: {latest_file.name}")
 
     return latest_file
 
 def load_document_ir(file_path):
     """
-    读取指定路径的 Document IR JSON，并统计章节/图表数量。
+    Read Document IR JSON from the given path and count chapters/charts.
 
-    解析失败时返回 None；成功时会打印章节数与图表数，便于确认
-    输入报告的规模。
+    Return None on parse failure. On success, print chapter and chart counts
+    to help confirm input report scale.
 
-    参数:
-        file_path: IR 文件路径
+    Args:
+        file_path: IR file path
 
-    返回:
-        dict | None: 解析后的 Document IR；失败返回 None。
+    Returns:
+        dict | None: Parsed Document IR; None on failure.
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             document_ir = json.load(f)
 
-        logger.info(f"成功加载报告: {file_path.name}")
+        logger.info(f"Report loaded successfully: {file_path.name}")
 
-        # 统计图表数量
+        # Count charts
         chart_count = 0
         chapters = document_ir.get('chapters', [])
 
         def count_charts(blocks):
-            """递归统计 block 列表中的 Chart.js 图表数量"""
+            """Recursively count Chart.js charts in a block list."""
             count = 0
             for block in blocks:
                 if isinstance(block, dict):
                     if block.get('type') == 'widget' and block.get('widgetType', '').startswith('chart.js'):
                         count += 1
-                    # 递归处理嵌套blocks
+                    # Recursively handle nested blocks
                     nested = block.get('blocks')
                     if isinstance(nested, list):
                         count += count_charts(nested)
@@ -80,37 +81,38 @@ def load_document_ir(file_path):
             blocks = chapter.get('blocks', [])
             chart_count += count_charts(blocks)
 
-        logger.info(f"报告包含 {len(chapters)} 个章节，{chart_count} 个图表")
+        logger.info(f"Report contains {len(chapters)} chapters and {chart_count} charts")
 
         return document_ir
 
     except Exception as e:
-        logger.error(f"加载报告失败: {e}")
+        logger.error(f"Failed to load report: {e}")
         return None
 
 def generate_pdf_with_vector_charts(document_ir, output_path, ir_file_path=None):
     """
-    使用 PDFRenderer 将 Document IR 渲染为包含 SVG 矢量图表的 PDF。
+    Render Document IR to a PDF with SVG vector charts using PDFRenderer.
 
-    启用布局优化，生成后输出文件大小与成功提示；异常时返回 None。
+    Enable layout optimization, print file size and success info after generation;
+    return None on exception.
 
-    参数:
-        document_ir: 完整的 Document IR
-        output_path: 目标 PDF 路径
-        ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
+    Args:
+        document_ir: Complete Document IR
+        output_path: Target PDF path
+        ir_file_path: Optional IR file path; when provided, fixes are auto-saved
 
-    返回:
-        Path | None: 成功时返回生成的 PDF 路径，失败返回 None。
+    Returns:
+        Path | None: Generated PDF path on success, None on failure.
     """
     try:
         logger.info("=" * 60)
-        logger.info("开始生成PDF（带矢量图表）")
+        logger.info("Starting PDF generation (with vector charts)")
         logger.info("=" * 60)
 
-        # 创建PDF渲染器
+        # Create PDF renderer
         renderer = PDFRenderer()
 
-        # 渲染PDF，传入 ir_file_path 用于修复后保存
+        # Render PDF; pass ir_file_path to auto-save post-fix changes
         result_path = renderer.render_to_pdf(
             document_ir,
             output_path,
@@ -119,77 +121,77 @@ def generate_pdf_with_vector_charts(document_ir, output_path, ir_file_path=None)
         )
 
         logger.info("=" * 60)
-        logger.info(f"✓ PDF生成成功: {result_path}")
+        logger.info(f"✓ PDF generated successfully: {result_path}")
         logger.info("=" * 60)
 
-        # 显示文件大小
+        # Display file size
         file_size = result_path.stat().st_size
         size_mb = file_size / (1024 * 1024)
-        logger.info(f"文件大小: {size_mb:.2f} MB")
+        logger.info(f"File size: {size_mb:.2f} MB")
 
         return result_path
 
     except Exception as e:
-        logger.error(f"生成PDF失败: {e}", exc_info=True)
+        logger.error(f"PDF generation failed: {e}", exc_info=True)
         return None
 
 def main():
     """
-    主入口：重新生成最新报告的矢量 PDF。
+    Main entry point: regenerate the latest report vector PDF.
 
-    步骤：
-        1) 查找最新 IR 文件；
-        2) 读取并统计报告结构；
-        3) 构造输出文件名并确保目录存在；
-        4) 调用渲染函数生成 PDF，输出路径与特性说明。
+    Steps:
+        1) Find latest IR file;
+        2) Read and summarize report structure;
+        3) Build output filename and ensure directory exists;
+        4) Call renderer to generate PDF and print output details.
 
-    返回:
-        int: 0 表示成功，非 0 表示失败。
+    Returns:
+        int: 0 for success, non-zero for failure.
     """
-    logger.info("🚀 使用SVG矢量图表重新生成最新报告的PDF")
+    logger.info("🚀 Regenerating latest report PDF using SVG vector charts")
     logger.info("")
 
-    # 1. 找到最新报告
+    # 1. Find latest report
     latest_report = find_latest_report()
     if not latest_report:
-        logger.error("未找到报告文件")
+        logger.error("No report file found")
         return 1
 
-    # 2. 加载报告数据
+    # 2. Load report data
     document_ir = load_document_ir(latest_report)
     if not document_ir:
-        logger.error("加载报告失败")
+        logger.error("Failed to load report")
         return 1
 
-    # 3. 生成输出文件名
+    # 3. Build output filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_name = latest_report.stem.replace("report_ir_", "")
     output_filename = f"report_vector_{report_name}_{timestamp}.pdf"
     output_path = Path("final_reports/pdf") / output_filename
 
-    # 确保输出目录存在
+    # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"输出路径: {output_path}")
+    logger.info(f"Output path: {output_path}")
     logger.info("")
 
-    # 4. 生成PDF，传入 IR 文件路径用于修复后保存
+    # 4. Generate PDF; pass IR path to auto-save post-fix changes
     result = generate_pdf_with_vector_charts(document_ir, output_path, ir_file_path=latest_report)
 
     if result:
         logger.info("")
-        logger.info("🎉 PDF生成完成！")
+        logger.info("🎉 PDF generation completed!")
         logger.info("")
-        logger.info("特性说明:")
-        logger.info("  ✓ 图表以SVG矢量格式渲染")
-        logger.info("  ✓ 支持无限缩放不失真")
-        logger.info("  ✓ 保留完整的图表视觉效果")
-        logger.info("  ✓ 折线图、柱状图、饼图等均为矢量曲线")
+        logger.info("Feature notes:")
+        logger.info("  ✓ Charts are rendered in SVG vector format")
+        logger.info("  ✓ Supports unlimited scaling without quality loss")
+        logger.info("  ✓ Preserves full chart visual fidelity")
+        logger.info("  ✓ Line, bar, pie and other charts use vector curves")
         logger.info("")
-        logger.info(f"PDF文件位置: {result.absolute()}")
+        logger.info(f"PDF file location: {result.absolute()}")
         return 0
     else:
-        logger.error("❌ PDF生成失败")
+        logger.error("❌ PDF generation failed")
         return 1
 
 if __name__ == "__main__":

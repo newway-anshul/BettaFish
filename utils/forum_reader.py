@@ -1,6 +1,6 @@
 """
-Forum日志读取工具
-用于读取forum.log中的最新HOST发言
+Forum log reader utility.
+Used to read the latest HOST messages from forum.log.
 """
 
 import re
@@ -9,63 +9,61 @@ from typing import Optional, List, Dict
 from loguru import logger
 
 def get_latest_host_speech(log_dir: str = "logs") -> Optional[str]:
-    """
-    获取forum.log中最新的HOST发言
-    
+    """Get the latest HOST message from forum.log.
+
     Args:
-        log_dir: 日志目录路径
-        
+        log_dir: Log directory path.
+
     Returns:
-        最新的HOST发言内容，如果没有则返回None
+        Latest HOST message content, or None if not found.
     """
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         
         if not forum_log_path.exists():
-            logger.debug("forum.log文件不存在")
+            logger.debug("forum.log does not exist")
             return None
             
         with open(forum_log_path, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
         
-        # 从后往前查找最新的HOST发言
+        # Search backward for the latest HOST message.
         host_speech = None
         for line in reversed(lines):
-            # 匹配格式: [时间] [HOST] 内容
+            # Match format: [time] [HOST] content
             match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*\[HOST\]\s*(.+)', line)
             if match:
                 _, content = match.groups()
-                # 处理转义的换行符，还原为实际换行
+                # Restore escaped newlines.
                 host_speech = content.replace('\\n', '\n').strip()
                 break
         
         if host_speech:
-            logger.info(f"找到最新的HOST发言，长度: {len(host_speech)}字符")
+            logger.info(f"Found latest HOST message, length: {len(host_speech)} characters")
         else:
-            logger.debug("未找到HOST发言")
+            logger.debug("No HOST message found")
             
         return host_speech
         
     except Exception as e:
-        logger.error(f"读取forum.log失败: {str(e)}")
+        logger.error(f"Failed to read forum.log: {str(e)}")
         return None
 
 
 def get_all_host_speeches(log_dir: str = "logs") -> List[Dict[str, str]]:
-    """
-    获取forum.log中所有的HOST发言
-    
+    """Get all HOST messages from forum.log.
+
     Args:
-        log_dir: 日志目录路径
-        
+        log_dir: Log directory path.
+
     Returns:
-        包含所有HOST发言的列表，每个元素是包含timestamp和content的字典
+        A list of HOST messages. Each item includes timestamp and content.
     """
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         
         if not forum_log_path.exists():
-            logger.debug("forum.log文件不存在")
+            logger.debug("forum.log does not exist")
             return []
             
         with open(forum_log_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -73,35 +71,34 @@ def get_all_host_speeches(log_dir: str = "logs") -> List[Dict[str, str]]:
         
         host_speeches = []
         for line in lines:
-            # 匹配格式: [时间] [HOST] 内容
+            # Match format: [time] [HOST] content
             match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*\[HOST\]\s*(.+)', line)
             if match:
                 timestamp, content = match.groups()
-                # 处理转义的换行符
+                # Restore escaped newlines.
                 content = content.replace('\\n', '\n').strip()
                 host_speeches.append({
                     'timestamp': timestamp,
                     'content': content
                 })
         
-        logger.info(f"找到{len(host_speeches)}条HOST发言")
+        logger.info(f"Found {len(host_speeches)} HOST messages")
         return host_speeches
         
     except Exception as e:
-        logger.error(f"读取forum.log失败: {str(e)}")
+        logger.error(f"Failed to read forum.log: {str(e)}")
         return []
 
 
 def get_recent_agent_speeches(log_dir: str = "logs", limit: int = 5) -> List[Dict[str, str]]:
-    """
-    获取forum.log中最近的Agent发言（不包括HOST）
-    
+    """Get recent agent messages from forum.log (excluding HOST).
+
     Args:
-        log_dir: 日志目录路径
-        limit: 返回的最大发言数量
-        
+        log_dir: Log directory path.
+        limit: Maximum number of messages to return.
+
     Returns:
-        包含最近Agent发言的列表
+        List of recent agent messages.
     """
     try:
         forum_log_path = Path(log_dir) / "forum.log"
@@ -113,12 +110,12 @@ def get_recent_agent_speeches(log_dir: str = "logs", limit: int = 5) -> List[Dic
             lines = f.readlines()
         
         agent_speeches = []
-        for line in reversed(lines):  # 从后往前读取
-            # 匹配格式: [时间] [AGENT_NAME] 内容
+        for line in reversed(lines):  # Read from latest to oldest.
+            # Match format: [time] [AGENT_NAME] content
             match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*\[(INSIGHT|MEDIA|QUERY)\]\s*(.+)', line)
             if match:
                 timestamp, agent, content = match.groups()
-                # 处理转义的换行符
+                # Restore escaped newlines.
                 content = content.replace('\\n', '\n').strip()
                 agent_speeches.append({
                     'timestamp': timestamp,
@@ -128,30 +125,29 @@ def get_recent_agent_speeches(log_dir: str = "logs", limit: int = 5) -> List[Dic
                 if len(agent_speeches) >= limit:
                     break
         
-        agent_speeches.reverse()  # 恢复时间顺序
+        agent_speeches.reverse()  # Restore chronological order.
         return agent_speeches
         
     except Exception as e:
-        logger.error(f"读取forum.log失败: {str(e)}")
+        logger.error(f"Failed to read forum.log: {str(e)}")
         return []
 
 
 def format_host_speech_for_prompt(host_speech: str) -> str:
-    """
-    格式化HOST发言，用于添加到prompt中
-    
+    """Format a HOST message for prompt injection.
+
     Args:
-        host_speech: HOST发言内容
-        
+        host_speech: HOST message content.
+
     Returns:
-        格式化后的内容
+        Formatted content string.
     """
     if not host_speech:
         return ""
     
     return f"""
-### 论坛主持人最新总结
-以下是论坛主持人对各Agent讨论的最新总结和引导，请参考其中的观点和建议：
+### Latest Forum Host Summary
+Below is the forum host's latest summary and guidance based on the agent discussion. Please refer to the viewpoints and suggestions:
 
 {host_speech}
 

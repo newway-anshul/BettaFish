@@ -1,54 +1,54 @@
-# 贡献指南
+# Contribution Guide
 
-感谢你愿意为本项目做出贡献！
-为了保持代码质量和版本管理的清晰，请按照以下步骤提交你的修改。
+Thank you for contributing to this project!
+To keep code quality and version history clear, please follow the steps below when submitting changes.
 
-# 🪄 提交 Pull Request（PR）步骤
+# 🪄 Pull Request (PR) Submission Steps
 
-## 1️⃣ Fork 仓库
+## 1️⃣ Fork the Repository
 
-将本仓库 Fork 到你的 GitHub 账户。
+Fork this repository to your GitHub account.
 
-## 2️⃣ 克隆到本地
-
-```bash
-git clone https://github.com/<你的用户名>/<仓库名>.git
-cd <仓库名>
-```
-
-## 3️⃣ 创建功能分支
+## 2️⃣ Clone Locally
 
 ```bash
-git checkout -b feature/你的功能名
+git clone https://github.com/<your-username>/<repository-name>.git
+cd <repository-name>
 ```
 
-> 建议分支命名规范：`feature/xxx` 或 `fix/xxx`，便于识别功能或修复类型。
+## 3️⃣ Create a Feature Branch
 
-## 4️⃣ 开发与测试
+```bash
+git checkout -b feature/your-feature-name
+```
 
-* 进行代码修改，保持项目代码风格一致。
-* 确保新增功能或修复通过测试。
+> Recommended branch naming: `feature/xxx` or `fix/xxx` so feature/fix type is easy to identify.
 
-## 5️⃣ 提交修改
+## 4️⃣ Develop and Test
+
+* Make your code changes while keeping the project style consistent.
+* Ensure new features or fixes pass tests.
+
+## 5️⃣ Commit Changes
 
 ```bash
 git add .
-git commit -m "类型: 简短描述"
+git commit -m "type: short description"
 ```
 
-> 推荐遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)，保持提交记录清晰。
+> We recommend following [Conventional Commits](https://www.conventionalcommits.org/) to keep commit history clear.
 
-## 6️⃣ 推送到远程仓库
+## 6️⃣ Push to Remote Repository
 
 ```bash
-git push origin feature/你的功能名
+git push origin feature/your-feature-name
 ```
 
-## 7️⃣ 发起 Pull Request
+## 7️⃣ Open a Pull Request
 
-1. 在 GitHub 上点击 **New Pull Request**。
-2. **目标分支必须是本仓库的 `main` 分支**。
-3. 填写 PR 描述：
+1. Click **New Pull Request** on GitHub.
+2. **The target branch must be this repository's `main` branch**.
+3. Fill in the PR description:
 
-   * 说明主要改动内容
-   * 如有相关 issue，请在 PR 中关联
+   * Explain the main changes
+   * If there is a related issue, link it in the PR

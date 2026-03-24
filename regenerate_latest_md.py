@@ -1,5 +1,5 @@
 """
-使用最新的章节JSON重新装订并渲染Markdown报告。
+Restitch and render a Markdown report using the latest chapter JSON.
 """
 
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from loguru import logger
 
-# 确保可以找到项目内模块
+# Ensure project modules can be imported
 sys.path.insert(0, str(Path(__file__).parent))
 
 from ReportEngine.core import ChapterStorage, DocumentComposer
@@ -19,20 +19,21 @@ from ReportEngine.utils.config import settings
 
 def find_latest_run_dir(chapter_root: Path):
     """
-    定位章节根目录下最新一次运行的输出目录。
+    Locate the latest run output directory under the chapter root.
 
-    扫描 `chapter_root` 下所有子目录，筛选出包含 `manifest.json`
-    的候选，按修改时间倒序取最新一条。若目录不存在或没有有效
-    manifest，会记录错误并返回 None。
+    Scan all subdirectories under `chapter_root`, filter candidates that
+    contain `manifest.json`, and pick the newest by modification time.
+    If the directory does not exist or no valid manifest is found, log
+    an error and return None.
 
-    参数:
-        chapter_root: 章节输出的根目录（通常是 settings.CHAPTER_OUTPUT_DIR）
+    Args:
+        chapter_root: Root directory for chapter outputs (usually settings.CHAPTER_OUTPUT_DIR)
 
-    返回:
-        Path | None: 最新的 run 目录路径；若未找到则为 None。
+    Returns:
+        Path | None: Latest run directory path, or None if not found.
     """
     if not chapter_root.exists():
-        logger.error(f"章节目录不存在: {chapter_root}")
+        logger.error(f"Chapter directory does not exist: {chapter_root}")
         return None
 
     run_dirs = []
@@ -44,25 +45,26 @@ def find_latest_run_dir(chapter_root: Path):
             run_dirs.append((candidate, manifest_path.stat().st_mtime))
 
     if not run_dirs:
-        logger.error("未找到带 manifest.json 的章节目录")
+        logger.error("No chapter directories with manifest.json were found")
         return None
 
     latest_dir = sorted(run_dirs, key=lambda item: item[1], reverse=True)[0][0]
-    logger.info(f"找到最新run目录: {latest_dir.name}")
+    logger.info(f"Latest run directory found: {latest_dir.name}")
     return latest_dir
 
 
 def load_manifest(run_dir: Path):
     """
-    读取单次运行目录内的 manifest.json。
+    Read manifest.json from a single run directory.
 
-    成功时返回 reportId 以及元数据字典；读取或解析失败会记录错误
-    并返回 (None, None)，以便上层提前终止流程。
+    On success, return reportId and metadata dictionary. If reading or
+    parsing fails, log an error and return (None, None) so the caller
+    can terminate early.
 
-    参数:
-        run_dir: 包含 manifest.json 的章节输出目录
+    Args:
+        run_dir: Chapter output directory containing manifest.json
 
-    返回:
+    Returns:
         tuple[str | None, dict | None]: (report_id, metadata)
     """
     manifest_path = run_dir / "manifest.json"
@@ -71,43 +73,44 @@ def load_manifest(run_dir: Path):
             manifest = json.load(f)
         report_id = manifest.get("reportId") or run_dir.name
         metadata = manifest.get("metadata") or {}
-        logger.info(f"报告ID: {report_id}")
+        logger.info(f"Report ID: {report_id}")
         if manifest.get("createdAt"):
-            logger.info(f"创建时间: {manifest['createdAt']}")
+            logger.info(f"Created at: {manifest['createdAt']}")
         return report_id, metadata
     except Exception as exc:
-        logger.error(f"读取manifest失败: {exc}")
+        logger.error(f"Failed to read manifest: {exc}")
         return None, None
 
 
 def load_chapters(run_dir: Path):
     """
-    读取指定 run 目录下的所有章节 JSON。
+    Read all chapter JSON files from the specified run directory.
 
-    会复用 ChapterStorage 的 load_chapters 能力，自动按 order 排序。
-    读取后打印章节数量，便于确认完整性。
+    Reuses ChapterStorage.load_chapters and sorts automatically by order.
+    Logs chapter count after loading for completeness checks.
 
-    参数:
-        run_dir: 单次报告的章节目录
+    Args:
+        run_dir: Chapter directory for one report run
 
-    返回:
-        list[dict]: 章节 JSON 列表（若目录为空则为空列表）
+    Returns:
+        list[dict]: List of chapter JSON objects (empty if directory is empty)
     """
     storage = ChapterStorage(settings.CHAPTER_OUTPUT_DIR)
     chapters = storage.load_chapters(run_dir)
-    logger.info(f"加载章节数: {len(chapters)}")
+    logger.info(f"Loaded chapter count: {len(chapters)}")
     return chapters
 
 
 def validate_chapters(chapters):
     """
-    使用 IRValidator 对章节结构做快速校验。
+    Perform a quick structural validation of chapters using IRValidator.
 
-    仅记录未通过的章节及前三条错误，不会中断流程；目的是在
-    重装订前发现潜在结构问题。
+    Only logs failed chapters and their first three errors. It does not
+    stop the workflow; the goal is to detect potential structure issues
+    before restitching.
 
-    参数:
-        chapters: 章节 JSON 列表
+    Args:
+        chapters: List of chapter JSON objects
     """
     validator = IRValidator()
     invalid = []
@@ -117,50 +120,50 @@ def validate_chapters(chapters):
             invalid.append((chapter.get("chapterId") or "unknown", errors))
 
     if invalid:
-        logger.warning(f"有 {len(invalid)} 个章节未通过结构校验，将继续装订：")
+        logger.warning(f"{len(invalid)} chapters failed structural validation; stitching will continue:")
         for chapter_id, errors in invalid:
             preview = "; ".join(errors[:3])
             logger.warning(f"  - {chapter_id}: {preview}")
     else:
-        logger.info("章节结构校验通过")
+        logger.info("Chapter structure validation passed")
 
 
 def stitch_document(report_id, metadata, chapters):
     """
-    将各章节与元数据装订为完整的 Document IR。
+    Stitch chapters and metadata into a complete Document IR.
 
-    使用 DocumentComposer 统一处理章节顺序、全局元数据等，并打印
-    装订完成的章节与图表数量。
+    Uses DocumentComposer to unify chapter order and global metadata,
+    then logs the final chapter and chart counts.
 
-    参数:
-        report_id: 报告 ID（来自 manifest 或目录名）
-        metadata: manifest 中的全局元数据
-        chapters: 已加载的章节列表
+    Args:
+        report_id: Report ID (from manifest or directory name)
+        metadata: Global metadata from manifest
+        chapters: Loaded chapter list
 
-    返回:
-        dict: 完整的 Document IR 对象
+    Returns:
+        dict: Complete Document IR object
     """
     composer = DocumentComposer()
     document_ir = composer.build_document(report_id, metadata, chapters)
     logger.info(
-        f"装订完成: {len(document_ir.get('chapters', []))} 个章节，"
-        f"{count_charts(document_ir)} 个图表"
+        f"Stitching complete: {len(document_ir.get('chapters', []))} chapters, "
+        f"{count_charts(document_ir)} charts"
     )
     return document_ir
 
 
 def count_charts(document_ir):
     """
-    统计整本 Document IR 中的 Chart.js 图表数量。
+    Count the number of Chart.js charts in the entire Document IR.
 
-    会遍历每章的 blocks，递归查找 widget 类型中以 `chart.js`
-    开头的组件，便于快速感知图表规模。
+    Traverses chapter blocks and recursively finds widget entries whose
+    type starts with `chart.js`, for a quick chart-scale estimate.
 
-    参数:
-        document_ir: 完整的 Document IR
+    Args:
+        document_ir: Complete Document IR
 
-    返回:
-        int: 图表总数
+    Returns:
+        int: Total chart count
     """
     chart_count = 0
     for chapter in document_ir.get("chapters", []):
@@ -171,15 +174,16 @@ def count_charts(document_ir):
 
 def _count_chart_blocks(blocks):
     """
-    递归统计 block 列表中的 Chart.js 组件数量。
+    Recursively count Chart.js components in a block list.
 
-    兼容嵌套的 blocks/list/table 结构，确保所有层级的图表都被计入。
+    Supports nested blocks/list/table structures so charts at all levels
+    are counted.
 
-    参数:
-        blocks: 任意层级的 block 列表
+    Args:
+        blocks: Block list at any nesting level
 
-    返回:
-        int: 统计到的 chart.js 图表数量
+    Returns:
+        int: Counted number of chart.js charts
     """
     count = 0
     for block in blocks:
@@ -206,46 +210,47 @@ def _count_chart_blocks(blocks):
 
 def save_document_ir(document_ir, base_name, timestamp):
     """
-    将重新装订好的整本 Document IR 落盘。
+    Save the restitched full Document IR to disk.
 
-    按 `report_ir_{slug}_{timestamp}_regen.json` 命名写入
-    `settings.DOCUMENT_IR_OUTPUT_DIR`，确保目录存在并返回保存路径。
+    Writes to `settings.DOCUMENT_IR_OUTPUT_DIR` using the filename pattern
+    `report_ir_{slug}_{timestamp}_regen.json`, ensures the directory exists,
+    and returns the saved path.
 
-    参数:
-        document_ir: 已装订完成的整本 IR
-        base_name: 由主题/标题生成的安全文件名片段
-        timestamp: 时间戳字符串，用于区分多次重生成
+    Args:
+        document_ir: Fully stitched IR
+        base_name: Safe filename fragment from topic/title
+        timestamp: Timestamp string for distinguishing repeated regenerations
 
-    返回:
-        Path: 保存的 IR 文件路径
+    Returns:
+        Path: Saved IR file path
     """
     output_dir = Path(settings.DOCUMENT_IR_OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
     ir_filename = f"report_ir_{base_name}_{timestamp}_regen.json"
     ir_path = output_dir / ir_filename
     ir_path.write_text(json.dumps(document_ir, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info(f"IR已保存: {ir_path}")
+    logger.info(f"IR saved: {ir_path}")
     return ir_path
 
 
 def render_markdown(document_ir, base_name, timestamp, ir_path=None):
     """
-    使用 MarkdownRenderer 将 Document IR 渲染为 Markdown 并保存。
+    Render Document IR to Markdown with MarkdownRenderer and save it.
 
-    渲染后落盘到 `final_reports/md`，打印生成文件大小，便于确认
-    输出内容。
+    Writes output to `final_reports/md` and logs generated file size for
+    quick output verification.
 
-    参数:
-        document_ir: 装订完成的整本 IR
-        base_name: 文件名片段（来源于报告主题/标题）
-        timestamp: 时间戳字符串
-        ir_path: 可选，IR 文件路径，提供时修复后会自动保存
+    Args:
+        document_ir: Fully stitched IR
+        base_name: Filename fragment (from report topic/title)
+        timestamp: Timestamp string
+        ir_path: Optional IR file path; when provided, fixes are auto-saved
 
-    返回:
-        Path: 生成的 Markdown 文件路径
+    Returns:
+        Path: Generated Markdown file path
     """
     renderer = MarkdownRenderer()
-    # 传入 ir_file_path，修复后自动保存
+    # Pass ir_file_path so fixes are auto-saved
     markdown_content = renderer.render(document_ir, ir_file_path=str(ir_path) if ir_path else None)
 
     output_dir = Path(settings.OUTPUT_DIR) / "md"
@@ -255,22 +260,22 @@ def render_markdown(document_ir, base_name, timestamp, ir_path=None):
     md_path.write_text(markdown_content, encoding="utf-8")
 
     file_size_kb = md_path.stat().st_size / 1024
-    logger.info(f"Markdown生成成功: {md_path} ({file_size_kb:.1f} KB)")
+    logger.info(f"Markdown generated successfully: {md_path} ({file_size_kb:.1f} KB)")
     return md_path
 
 
 def build_slug(text):
     """
-    将主题/标题转换为文件系统安全的片段。
+    Convert a topic/title to a filesystem-safe fragment.
 
-    仅保留字母/数字/空格/下划线/连字符，空格统一为下划线，并限制
-    最长 60 字符，避免过长文件名。
+    Keeps only letters/digits/spaces/underscores/hyphens, normalizes spaces
+    to underscores, and limits length to 60 characters to avoid long filenames.
 
-    参数:
-        text: 原始主题或标题
+    Args:
+        text: Original topic or title
 
-    返回:
-        str: 清洗后的安全字符串
+    Returns:
+        str: Sanitized safe string
     """
     text = str(text or "report")
     sanitized = "".join(c for c in text if c.isalnum() or c in (" ", "-", "_")).strip()
@@ -280,18 +285,18 @@ def build_slug(text):
 
 def main():
     """
-    主入口：读取最新章节、装订 IR 并渲染 Markdown。
+    Main entry: load latest chapters, stitch IR, and render Markdown.
 
-    流程：
-        1) 找到最新的章节 run 目录并读取 manifest；
-        2) 加载章节并执行结构校验（仅警告）；
-        3) 装订整本 IR，保存 IR 副本；
-        4) 渲染 Markdown 并输出路径。
+    Flow:
+        1) Find the latest chapter run directory and read manifest;
+        2) Load chapters and run structural validation (warnings only);
+        3) Stitch full IR and save an IR copy;
+        4) Render Markdown and print output paths.
 
-    返回:
-        int: 0 表示成功，其余表示失败。
+    Returns:
+        int: 0 means success, non-zero means failure.
     """
-    logger.info("🚀 使用最新的LLM章节重新装订并渲染Markdown")
+    logger.info("🚀 Restitching and rendering Markdown with the latest LLM chapters")
 
     chapter_root = Path(settings.CHAPTER_OUTPUT_DIR)
     latest_run = find_latest_run_dir(chapter_root)
@@ -304,7 +309,7 @@ def main():
 
     chapters = load_chapters(latest_run)
     if not chapters:
-        logger.error("未找到章节JSON，无法装订")
+        logger.error("No chapter JSON found; stitching cannot proceed")
         return 1
 
     validate_chapters(chapters)
@@ -317,13 +322,13 @@ def main():
     )
 
     ir_path = save_document_ir(document_ir, base_name, timestamp)
-    # 传入 ir_path，修复后的图表会自动保存到 IR 文件
+    # Pass ir_path so fixed charts are auto-saved to the IR file
     md_path = render_markdown(document_ir, base_name, timestamp, ir_path=ir_path)
 
     logger.info("")
-    logger.info("🎉 Markdown装订与渲染完成")
-    logger.info(f"IR文件: {ir_path.resolve()}")
-    logger.info(f"Markdown文件: {md_path.resolve()}")
+    logger.info("🎉 Markdown stitching and rendering completed")
+    logger.info(f"IR file: {ir_path.resolve()}")
+    logger.info(f"Markdown file: {md_path.resolve()}")
     return 0
 
 

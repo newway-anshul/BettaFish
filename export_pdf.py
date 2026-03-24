@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-PDF导出脚本
+PDF export script
 """
 import json
 import os
@@ -8,29 +8,29 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# 添加项目路径到sys.path
+# Add project path to sys.path
 sys.path.insert(0, '/Users/mayiding/Desktop/GitMy/BettaFish')
 
 def export_pdf(ir_file_path):
-    """导出PDF"""
+    """Export PDF."""
     try:
-        # 读取IR文件
-        print(f"正在读取报告文件: {ir_file_path}")
+        # Read IR file
+        print(f"Reading report file: {ir_file_path}")
         with open(ir_file_path, 'r', encoding='utf-8') as f:
             document_ir = json.load(f)
 
-        # 导入PDF渲染器
+        # Import PDF renderer
         from ReportEngine.renderers.pdf_renderer import PDFRenderer
 
-        # 创建PDF渲染器
-        print("正在初始化PDF渲染器...")
+        # Create PDF renderer
+        print("Initializing PDF renderer...")
         renderer = PDFRenderer()
 
-        # 生成PDF
-        print("正在生成PDF...")
+        # Generate PDF
+        print("Generating PDF...")
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=True)
 
-        # 确定输出文件名
+        # Determine output file name
         topic = document_ir.get('metadata', {}).get('topic', 'report')
         output_dir = Path('/Users/mayiding/Desktop/GitMy/BettaFish/final_reports/pdf')
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -38,33 +38,33 @@ def export_pdf(ir_file_path):
         pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         output_path = output_dir / pdf_filename
 
-        # 保存PDF文件
-        print(f"正在保存PDF到: {output_path}")
+        # Save PDF file
+        print(f"Saving PDF to: {output_path}")
         with open(output_path, 'wb') as f:
             f.write(pdf_bytes)
 
-        print(f"✅ PDF导出成功！")
-        print(f"文件位置: {output_path}")
-        print(f"文件大小: {len(pdf_bytes) / 1024 / 1024:.2f} MB")
+        print("✅ PDF exported successfully!")
+        print(f"File location: {output_path}")
+        print(f"File size: {len(pdf_bytes) / 1024 / 1024:.2f} MB")
 
         return str(output_path)
 
     except Exception as e:
-        print(f"❌ PDF导出失败: {str(e)}")
+        print(f"❌ PDF export failed: {str(e)}")
         import traceback
         traceback.print_exc()
         return None
 
 if __name__ == "__main__":
-    # 使用最新的报告文件
-    latest_report = "/Users/mayiding/Desktop/GitMy/BettaFish/final_reports/ir/report_ir_人工智能行情发展走势_20251119_235407.json"
+    # Use the latest report file
+    latest_report = "/Users/mayiding/Desktop/GitMy/BettaFish/final_reports/ir/report_ir_AI_market_development_trend_20251119_235407.json"
 
     if os.path.exists(latest_report):
         print("="*50)
-        print("开始导出PDF")
+        print("Starting PDF export")
         print("="*50)
         result = export_pdf(latest_report)
         if result:
-            print(f"\n📄 PDF文件已生成: {result}")
+            print(f"\n📄 PDF file generated: {result}")
     else:
-        print(f"❌ 报告文件不存在: {latest_report}")
+        print(f"❌ Report file does not exist: {latest_report}")

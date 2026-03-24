@@ -1,14 +1,14 @@
 """
-Flask主应用 - 统一管理三个Streamlit应用
+Flask Main Application - Unified management of three Streamlit applications
 """
 
 import os
 import sys
 
-# 【修复】尽早设置环境变量，确保所有模块都使用无缓冲模式
+# [Fix] Set environment variables early to ensure all modules use unbuffered mode
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['PYTHONUTF8'] = '1'
-os.environ['PYTHONUNBUFFERED'] = '1'  # 禁用Python输出缓冲，确保日志实时输出
+os.environ['PYTHONUNBUFFERED'] = '1'  # Disable Python output buffering to ensure real-time log output
 
 import subprocess
 import time
@@ -24,34 +24,34 @@ import importlib
 from pathlib import Path
 from MindSpider.main import MindSpider
 
-# 导入ReportEngine
+# Import ReportEngine
 try:
     from ReportEngine.flask_interface import report_bp, initialize_report_engine
     REPORT_ENGINE_AVAILABLE = True
 except ImportError as e:
-    logger.error(f"ReportEngine导入失败: {e}")
+    logger.error(f"ReportEngine import failed: {e}")
     REPORT_ENGINE_AVAILABLE = False
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'Dedicated-to-creating-a-concise-and-versatile-public-opinion-analysis-platform'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# eventlet 在客户端主动断开时偶尔会抛出 ConnectionAbortedError，这里做一次防御性包裹，
-# 避免无意义的堆栈污染日志（仅在 eventlet 可用时启用）。
+# eventlet occasionally raises ConnectionAbortedError on client disconnect; wrap it defensively
+# to avoid polluting logs with meaningless stack traces (only active when eventlet is available).
 def _patch_eventlet_disconnect_logging():
     try:
         import eventlet.wsgi  # type: ignore
-    except Exception as exc:  # pragma: no cover - 仅在生产环境有效
-        logger.debug(f"eventlet 不可用，跳过断开补丁: {exc}")
+    except Exception as exc:  # pragma: no cover - only effective in production
+        logger.debug(f"eventlet not available, skipping disconnect patch: {exc}")
         return
 
     try:
         original_finish = eventlet.wsgi.HttpProtocol.finish  # type: ignore[attr-defined]
     except Exception as exc:  # pragma: no cover
-        logger.debug(f"eventlet 缺少 HttpProtocol.finish，跳过断开补丁: {exc}")
+        logger.debug(f"eventlet missing HttpProtocol.finish, skipping disconnect patch: {exc}")
         return
 
-    def _safe_finish(self, *args, **kwargs):  # pragma: no cover - 运行时才会触发
+    def _safe_finish(self, *args, **kwargs):  # pragma: no cover - only triggered at runtime
         try:
             return original_finish(self, *args, **kwargs)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as exc:
@@ -59,24 +59,24 @@ def _patch_eventlet_disconnect_logging():
                 environ = getattr(self, 'environ', {}) or {}
                 method = environ.get('REQUEST_METHOD', '')
                 path = environ.get('PATH_INFO', '')
-                logger.warning(f"客户端已主动断开，忽略异常: {method} {path} ({exc})")
+                logger.warning(f"Client actively disconnected, ignoring exception: {method} {path} ({exc})")
             except Exception:
-                logger.warning(f"客户端已主动断开，忽略异常: {exc}")
+                logger.warning(f"Client actively disconnected, ignoring exception: {exc}")
             return
 
     eventlet.wsgi.HttpProtocol.finish = _safe_finish  # type: ignore[attr-defined]
-    logger.info("已对 eventlet 连接中断进行安全防护")
+    logger.info("eventlet disconnect safety patch applied successfully")
 
 _patch_eventlet_disconnect_logging()
 
-# 注册ReportEngine Blueprint
+# Register ReportEngine Blueprint
 if REPORT_ENGINE_AVAILABLE:
     app.register_blueprint(report_bp, url_prefix='/api/report')
-    logger.info("ReportEngine接口已注册")
+    logger.info("ReportEngine interface registered")
 else:
-    logger.info("ReportEngine不可用，跳过接口注册")
+    logger.info("ReportEngine unavailable, skipping interface registration")
 
-# 创建日志目录
+# Create log directory
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -134,13 +134,13 @@ def _load_config_module():
 def read_config_values():
     """Return the current configuration values that are exposed to the frontend."""
     try:
-        # 重新加载配置以获取最新的 Settings 实例
+        # Reload config to get the latest Settings instance
         from config import reload_settings, settings
         reload_settings()
         
         values = {}
         for key in CONFIG_KEYS:
-            # 从 Pydantic Settings 实例读取值
+            # Read value from Pydantic Settings instance
             value = getattr(settings, key, None)
             # Convert to string for uniform handling on the frontend.
             if value is None:
@@ -149,7 +149,7 @@ def read_config_values():
                 values[key] = str(value)
         return values
     except Exception as exc:
-        logger.exception(f"读取配置失败: {exc}")
+        logger.exception(f"Failed to read config: {exc}")
         return {}
 
 
@@ -171,17 +171,17 @@ def write_config_values(updates):
     """Persist configuration updates to .env file (Pydantic Settings source)."""
     from pathlib import Path
     
-    # 确定 .env 文件路径（与 config.py 中的逻辑一致）
+    # Determine .env file path (consistent with logic in config.py)
     project_root = Path(__file__).resolve().parent
     cwd_env = Path.cwd() / ".env"
     env_file_path = cwd_env if cwd_env.exists() else (project_root / ".env")
     
-    # 读取现有的 .env 文件内容
+    # Read existing .env file content
     env_lines = []
-    env_key_indices = {}  # 记录每个键在文件中的索引位置
+    env_key_indices = {}  # Track the index position of each key in the file
     if env_file_path.exists():
         env_lines = env_file_path.read_text(encoding='utf-8').splitlines()
-        # 提取已存在的键及其索引
+        # Extract existing keys and their indices
         for i, line in enumerate(env_lines):
             line_stripped = line.strip()
             if line_stripped and not line_stripped.startswith('#'):
@@ -189,9 +189,9 @@ def write_config_values(updates):
                     key = line_stripped.split('=')[0].strip()
                     env_key_indices[key] = i
     
-    # 更新或添加配置项
+    # Update or add configuration entries
     for key, raw_value in updates.items():
-        # 格式化值用于 .env 文件（不需要引号，除非是字符串且包含空格）
+        # Format value for .env file (no quotes needed unless string contains spaces)
         if raw_value is None or raw_value == '':
             env_value = ''
         elif isinstance(raw_value, (int, float)):
@@ -200,26 +200,26 @@ def write_config_values(updates):
             env_value = 'True' if raw_value else 'False'
         else:
             value_str = str(raw_value)
-            # 如果包含空格或特殊字符，需要引号
+            # If the value contains spaces or special characters, wrap in quotes
             if ' ' in value_str or '\n' in value_str or '#' in value_str:
                 escaped = value_str.replace('\\', '\\\\').replace('"', '\\"')
                 env_value = f'"{escaped}"'
             else:
                 env_value = value_str
         
-        # 更新或添加配置项
+        # Update or add configuration entry
         if key in env_key_indices:
-            # 更新现有行
+            # Update existing line
             env_lines[env_key_indices[key]] = f'{key}={env_value}'
         else:
-            # 添加新行到文件末尾
+            # Append new line to end of file
             env_lines.append(f'{key}={env_value}')
     
-    # 写入 .env 文件
+    # Write to .env file
     env_file_path.parent.mkdir(parents=True, exist_ok=True)
     env_file_path.write_text('\n'.join(env_lines) + '\n', encoding='utf-8')
     
-    # 重新加载配置模块（这会重新读取 .env 文件并创建新的 Settings 实例）
+    # Reload the config module (this re-reads the .env file and creates a new Settings instance)
     _load_config_module()
 
 
@@ -250,14 +250,14 @@ def _prepare_system_start():
     """Mark the system as starting if it is not already running or starting."""
     with system_state_lock:
         if system_state['started']:
-            return False, '系统已启动'
+            return False, 'System is already running'
         if system_state['starting']:
-            return False, '系统正在启动'
+            return False, 'System is starting up'
         system_state['starting'] = True
         return True, None
 
 def _mark_shutdown_requested():
-    """标记关机已请求；若已有关机流程则返回 False。"""
+    """Mark shutdown as requested; returns False if a shutdown is already in progress."""
     with system_state_lock:
         if system_state.get('shutdown_in_progress'):
             return False
@@ -266,64 +266,64 @@ def _mark_shutdown_requested():
 
 
 def initialize_system_components():
-    """启动所有依赖组件（Streamlit 子应用、ForumEngine、ReportEngine）。"""
+    """Start all dependent components (Streamlit sub-apps, ForumEngine, ReportEngine)."""
     logs = []
     errors = []
     
     spider = MindSpider()
     if spider.initialize_database():
-        logger.info("数据库初始化成功")
+        logger.info("Database initialized successfully")
     else:
-        logger.error("数据库初始化失败")
+        logger.error("Database initialization failed")
 
     try:
         stop_forum_engine()
-        logs.append("已停止 ForumEngine 监控器以避免文件冲突")
-    except Exception as exc:  # pragma: no cover - 安全捕获
-        message = f"停止 ForumEngine 时发生异常: {exc}"
+        logs.append("Stopped ForumEngine monitor to avoid file conflicts")
+    except Exception as exc:  # pragma: no cover - safety catch
+        message = f"Exception while stopping ForumEngine: {exc}"
         logs.append(message)
         logger.exception(message)
 
     processes['forum']['status'] = 'stopped'
 
     for app_name, script_path in STREAMLIT_SCRIPTS.items():
-        logs.append(f"检查文件: {script_path}")
+        logs.append(f"Checking file: {script_path}")
         if os.path.exists(script_path):
             success, message = start_streamlit_app(app_name, script_path, processes[app_name]['port'])
             logs.append(f"{app_name}: {message}")
             if success:
                 startup_success, startup_message = wait_for_app_startup(app_name, 30)
-                logs.append(f"{app_name} 启动检查: {startup_message}")
+                logs.append(f"{app_name} startup check: {startup_message}")
                 if not startup_success:
-                    errors.append(f"{app_name} 启动失败: {startup_message}")
+                    errors.append(f"{app_name} startup failed: {startup_message}")
             else:
-                errors.append(f"{app_name} 启动失败: {message}")
+                errors.append(f"{app_name} startup failed: {message}")
         else:
-            msg = f"文件不存在: {script_path}"
-            logs.append(f"错误: {msg}")
+            msg = f"File not found: {script_path}"
+            logs.append(f"Error: {msg}")
             errors.append(f"{app_name}: {msg}")
 
     forum_started = False
     try:
         start_forum_engine()
         processes['forum']['status'] = 'running'
-        logs.append("ForumEngine 启动完成")
+        logs.append("ForumEngine started successfully")
         forum_started = True
-    except Exception as exc:  # pragma: no cover - 保底捕获
-        error_msg = f"ForumEngine 启动失败: {exc}"
+    except Exception as exc:  # pragma: no cover - fallback catch
+        error_msg = f"ForumEngine startup failed: {exc}"
         logs.append(error_msg)
         errors.append(error_msg)
 
     if REPORT_ENGINE_AVAILABLE:
         try:
             if initialize_report_engine():
-                logs.append("ReportEngine 初始化成功")
+                logs.append("ReportEngine initialized successfully")
             else:
-                msg = "ReportEngine 初始化失败"
+                msg = "ReportEngine initialization failed"
                 logs.append(msg)
                 errors.append(msg)
         except Exception as exc:  # pragma: no cover
-            msg = f"ReportEngine 初始化异常: {exc}"
+            msg = f"ReportEngine initialization exception: {exc}"
             logs.append(msg)
             errors.append(msg)
 
@@ -334,61 +334,61 @@ def initialize_system_components():
             try:
                 stop_forum_engine()
             except Exception:  # pragma: no cover
-                logger.exception("停止ForumEngine失败")
+                logger.exception("Failed to stop ForumEngine")
         return False, logs, errors
 
     return True, logs, []
 
-# 初始化ForumEngine的forum.log文件
+# Initialize the ForumEngine forum.log file
 def init_forum_log():
-    """初始化forum.log文件"""
+    """Initialize the forum.log file."""
     try:
         forum_log_file = LOG_DIR / "forum.log"
-        # 检查文件不存在则创建并且写一个开始，存在就清空写一个开始
+        # Create and write a header if absent, or truncate and write a fresh header if present
         if not forum_log_file.exists():
             with open(forum_log_file, 'w', encoding='utf-8') as f:
                 start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"=== ForumEngine 系统初始化 - {start_time} ===\n")
-            logger.info(f"ForumEngine: forum.log 已初始化")
+                f.write(f"=== ForumEngine System Initialization - {start_time} ===\n")
+            logger.info("ForumEngine: forum.log initialized")
         else:
             with open(forum_log_file, 'w', encoding='utf-8') as f:
                 start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"=== ForumEngine 系统初始化 - {start_time} ===\n")
-            logger.info(f"ForumEngine: forum.log 已初始化")
+                f.write(f"=== ForumEngine System Initialization - {start_time} ===\n")
+            logger.info("ForumEngine: forum.log initialized")
     except Exception as e:
-        logger.exception(f"ForumEngine: 初始化forum.log失败: {e}")
+        logger.exception(f"ForumEngine: Failed to initialize forum.log: {e}")
 
-# 初始化forum.log
+# Initialize forum.log
 init_forum_log()
 
-# 启动ForumEngine智能监控
+# Start ForumEngine intelligent monitoring
 def start_forum_engine():
-    """启动ForumEngine论坛"""
+    """Start the ForumEngine forum."""
     try:
         from ForumEngine.monitor import start_forum_monitoring
-        logger.info("ForumEngine: 启动论坛...")
+        logger.info("ForumEngine: Starting forum...")
         success = start_forum_monitoring()
         if not success:
-            logger.info("ForumEngine: 论坛启动失败")
+            logger.info("ForumEngine: Forum startup failed")
     except Exception as e:
-        logger.exception(f"ForumEngine: 启动论坛失败: {e}")
+        logger.exception(f"ForumEngine: Failed to start forum: {e}")
 
-# 停止ForumEngine智能监控
+# Stop ForumEngine intelligent monitoring
 def stop_forum_engine():
-    """停止ForumEngine论坛"""
+    """Stop the ForumEngine forum."""
     try:
         from ForumEngine.monitor import stop_forum_monitoring
-        logger.info("ForumEngine: 停止论坛...")
+        logger.info("ForumEngine: Stopping forum...")
         stop_forum_monitoring()
-        logger.info("ForumEngine: 论坛已停止")
+        logger.info("ForumEngine: Forum stopped")
     except Exception as e:
-        logger.exception(f"ForumEngine: 停止论坛失败: {e}")
+        logger.exception(f"ForumEngine: Failed to stop forum: {e}")
 
 def parse_forum_log_line(line):
-    """解析forum.log行内容，提取对话信息"""
+    """Parse a forum.log line to extract conversation information."""
     import re
     
-    # 匹配格式: [时间] [来源] 内容（来源允许大小写及空格）
+    # Match format: [time] [source] content (source allows mixed case and spaces)
     pattern = r'\[(\d{2}:\d{2}:\d{2})\]\s*\[([^\]]+)\]\s*(.*)'
     match = re.match(pattern, line)
     
@@ -398,18 +398,18 @@ def parse_forum_log_line(line):
     timestamp, raw_source, content = match.groups()
     source = raw_source.strip().upper()
 
-    # 过滤掉系统消息和空内容
+    # Filter out system messages and empty content
     if source == 'SYSTEM' or not content.strip():
         return None
     
-    # 支持三个Agent和主持人
+    # Support three Agents and the host
     if source not in ['QUERY', 'INSIGHT', 'MEDIA', 'HOST']:
         return None
     
-    # 解码日志中的转义换行，保留多行格式
+    # Decode escaped newlines in the log, preserving multi-line format
     cleaned_content = content.replace('\\n', '\n').replace('\\r', '').strip()
     
-    # 根据来源确定消息类型和发送者
+    # Determine message type and sender based on source
     if source == 'HOST':
         message_type = 'host'
         sender = 'Forum Host'
@@ -425,25 +425,25 @@ def parse_forum_log_line(line):
         'source': source
     }
 
-# Forum日志监听器
-# 存储每个客户端的历史日志发送位置
+# Forum log listener
+# Store the historical log send position for each client
 forum_log_positions = {}
 
 def monitor_forum_log():
-    """监听forum.log文件变化并推送到前端"""
+    """Monitor forum.log file for changes and push updates to the frontend."""
     import time
     from pathlib import Path
 
     forum_log_file = LOG_DIR / "forum.log"
     last_position = 0
-    processed_lines = set()  # 用于跟踪已处理的行，避免重复
+    processed_lines = set()  # Track processed lines to avoid duplicates
 
-    # 如果文件存在，获取初始位置但不跳过内容
+    # If the file exists, get the initial position without skipping content
     if forum_log_file.exists():
         with open(forum_log_file, 'r', encoding='utf-8', errors='ignore') as f:
-            # 记录文件大小，但不添加到processed_lines
-            # 这样用户打开forum标签时可以获取历史
-            f.seek(0, 2)  # 移到文件末尾
+            # Record file size without adding to processed_lines
+            # so history is available when the user opens the forum tab
+            f.seek(0, 2)  # Seek to end of file
             last_position = f.tell()
 
     while True:
@@ -459,18 +459,18 @@ def monitor_forum_log():
                             if line.strip():
                                 line_hash = hash(line.strip())
 
-                                # 避免重复处理同一行
+                                # Avoid processing the same line twice
                                 if line_hash in processed_lines:
                                     continue
 
                                 processed_lines.add(line_hash)
 
-                                # 解析日志行并发送forum消息
+                                # Parse log line and send forum message
                                 parsed_message = parse_forum_log_line(line)
                                 if parsed_message:
                                     socketio.emit('forum_message', parsed_message)
 
-                                # 只有在控制台显示forum时才发送控制台消息
+                                # Only send console message when forum is displayed in the console
                                 timestamp = datetime.now().strftime('%H:%M:%S')
                                 formatted_line = f"[{timestamp}] {line}"
                                 socketio.emit('console_output', {
@@ -480,27 +480,27 @@ def monitor_forum_log():
 
                         last_position = f.tell()
 
-                        # 清理processed_lines集合，避免内存泄漏（保留最近1000行的哈希）
+                        # Trim processed_lines set to prevent memory leaks (keep last 1000 hashes)
                         if len(processed_lines) > 1000:
-                            # 保留最近500行的哈希
+                            # Keep only the last 500 hashes
                             recent_hashes = list(processed_lines)[-500:]
                             processed_lines = set(recent_hashes)
 
-            time.sleep(1)  # 每秒检查一次
+            time.sleep(1)  # Check every second
         except Exception as e:
-            logger.error(f"Forum日志监听错误: {e}")
+            logger.error(f"Forum log listener error: {e}")
             time.sleep(5)
 
-# 启动Forum日志监听线程
+# Start Forum log listener thread
 forum_monitor_thread = threading.Thread(target=monitor_forum_log, daemon=True)
 forum_monitor_thread.start()
 
-# 全局变量存储进程信息
+# Global variable to store process information
 processes = {
     'insight': {'process': None, 'port': 8501, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
     'media': {'process': None, 'port': 8502, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
     'query': {'process': None, 'port': 8503, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
-    'forum': {'process': None, 'port': None, 'status': 'stopped', 'output': [], 'log_file': None}  # 启动后标记为 running
+    'forum': {'process': None, 'port': None, 'status': 'stopped', 'output': [], 'log_file': None}  # marked as running after startup
 }
 
 STREAMLIT_SCRIPTS = {
@@ -510,12 +510,12 @@ STREAMLIT_SCRIPTS = {
 }
 
 def _log_shutdown_step(message: str):
-    """统一记录关机步骤，便于排查。"""
+    """Uniformly log shutdown steps for easier diagnosis."""
     logger.info(f"[Shutdown] {message}")
 
 
 def _describe_running_children():
-    """列出当前存活的子进程。"""
+    """List currently alive child processes."""
     running = []
     for name, info in processes.items():
         proc = info.get('process')
@@ -524,7 +524,7 @@ def _describe_running_children():
             running.append(f"{name}(pid={proc.pid}{port_desc})")
     return running
 
-# 输出队列
+# Output queues
 output_queues = {
     'insight': Queue(),
     'media': Queue(),
@@ -533,7 +533,7 @@ output_queues = {
 }
 
 def write_log_to_file(app_name, line):
-    """将日志写入文件"""
+    """Write log output to file."""
     try:
         log_file_path = LOG_DIR / f"{app_name}.log"
         with open(log_file_path, 'a', encoding='utf-8') as f:
@@ -543,7 +543,7 @@ def write_log_to_file(app_name, line):
         logger.error(f"Error writing log for {app_name}: {e}")
 
 def read_log_from_file(app_name, tail_lines=None):
-    """从文件读取日志"""
+    """Read log output from file."""
     try:
         log_file_path = LOG_DIR / f"{app_name}.log"
         if not log_file_path.exists():
@@ -561,14 +561,14 @@ def read_log_from_file(app_name, tail_lines=None):
         return []
 
 def read_process_output(process, app_name):
-    """读取进程输出并写入文件"""
+    """Read process output and write to file."""
     import select
     import sys
     
     while True:
         try:
             if process.poll() is not None:
-                # 进程结束，读取剩余输出
+                # Process exited, read remaining output
                 remaining_output = process.stdout.read()
                 if remaining_output:
                     lines = remaining_output.decode('utf-8', errors='replace').split('\n')
@@ -584,9 +584,9 @@ def read_process_output(process, app_name):
                             })
                 break
             
-            # 使用非阻塞读取
+            # Use non-blocking read
             if sys.platform == 'win32':
-                # Windows下使用不同的方法
+                # Use a different method on Windows
                 output = process.stdout.readline()
                 if output:
                     line = output.decode('utf-8', errors='replace').strip()
@@ -594,19 +594,19 @@ def read_process_output(process, app_name):
                         timestamp = datetime.now().strftime('%H:%M:%S')
                         formatted_line = f"[{timestamp}] {line}"
                         
-                        # 写入日志文件
+                        # Write to log file
                         write_log_to_file(app_name, formatted_line)
                         
-                        # 发送到前端
+                        # Send to frontend
                         socketio.emit('console_output', {
                             'app': app_name,
                             'line': formatted_line
                         })
                 else:
-                    # 没有输出时短暂休眠
+                    # Brief sleep when no output
                     time.sleep(0.1)
             else:
-                # Unix系统使用select
+                # Use select on Unix systems
                 ready, _, _ = select.select([process.stdout], [], [], 0.1)
                 if ready:
                     output = process.stdout.readline()
@@ -616,10 +616,10 @@ def read_process_output(process, app_name):
                             timestamp = datetime.now().strftime('%H:%M:%S')
                             formatted_line = f"[{timestamp}] {line}"
                             
-                            # 写入日志文件
+                            # Write to log file
                             write_log_to_file(app_name, formatted_line)
                             
-                            # 发送到前端
+                            # Send to frontend
                             socketio.emit('console_output', {
                                 'app': app_name,
                                 'line': formatted_line
@@ -632,22 +632,22 @@ def read_process_output(process, app_name):
             break
 
 def start_streamlit_app(app_name, script_path, port):
-    """启动Streamlit应用"""
+    """Start a Streamlit application."""
     try:
         if processes[app_name]['process'] is not None:
-            return False, "应用已经在运行"
+            return False, "Application is already running"
         
-        # 检查文件是否存在
+        # Check if the file exists
         if not os.path.exists(script_path):
-            return False, f"文件不存在: {script_path}"
+            return False, f"File not found: {script_path}"
         
-        # 清空之前的日志文件
+        # Clear the previous log file
         log_file_path = LOG_DIR / f"{app_name}.log"
         if log_file_path.exists():
             log_file_path.unlink()
         
-        # 创建启动日志
-        start_msg = f"[{datetime.now().strftime('%H:%M:%S')}] 启动 {app_name} 应用..."
+        # Create startup log entry
+        start_msg = f"[{datetime.now().strftime('%H:%M:%S')}] Starting {app_name} application..."
         write_log_to_file(app_name, start_msg)
         
         cmd = [
@@ -656,32 +656,32 @@ def start_streamlit_app(app_name, script_path, port):
             '--server.port', str(port),
             '--server.headless', 'true',
             '--browser.gatherUsageStats', 'false',
-            # '--logger.level', 'debug',  # 增加日志详细程度
+            # '--logger.level', 'debug',  # increase log verbosity
             '--logger.level', 'info',
             '--server.enableCORS', 'false'
         ]
         
-        # 设置环境变量确保UTF-8编码和减少缓冲
+        # Set environment variables to ensure UTF-8 encoding and reduce buffering
         env = os.environ.copy()
         env.update({
             'PYTHONIOENCODING': 'utf-8',
             'PYTHONUTF8': '1',
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
-            'PYTHONUNBUFFERED': '1',  # 禁用Python缓冲
+            'PYTHONUNBUFFERED': '1',  # Disable Python buffering
             'STREAMLIT_BROWSER_GATHER_USAGE_STATS': 'false'
         })
         
-        # 使用当前工作目录而不是脚本目录
+        # Use current working directory instead of script directory
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            bufsize=0,  # 无缓冲
+            bufsize=0,  # No buffering
             universal_newlines=False,
             cwd=os.getcwd(),
             env=env,
-            encoding=None,  # 让我们手动处理编码
+            encoding=None,  # Handle encoding manually
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
         )
         
@@ -690,7 +690,7 @@ def start_streamlit_app(app_name, script_path, port):
         processes[app_name]['output'] = []
         processes[app_name]['healthcheck_started_at'] = time.time()
         
-        # 启动输出读取线程
+        # Start the output reading thread
         output_thread = threading.Thread(
             target=read_process_output,
             args=(process, app_name),
@@ -698,48 +698,48 @@ def start_streamlit_app(app_name, script_path, port):
         )
         output_thread.start()
         
-        return True, f"{app_name} 应用启动中..."
+        return True, f"{app_name} application starting..."
         
     except Exception as e:
-        error_msg = f"启动失败: {str(e)}"
+        error_msg = f"Startup failed: {str(e)}"
         write_log_to_file(app_name, f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}")
         return False, error_msg
 
 def stop_streamlit_app(app_name):
-    """停止Streamlit应用"""
+    """Stop a Streamlit application."""
     try:
         process = processes[app_name]['process']
         if process is None:
-            _log_shutdown_step(f"{app_name} 未运行，跳过停止")
-            return False, "应用未运行"
+            _log_shutdown_step(f"{app_name} not running, skipping stop")
+            return False, "Application is not running"
         
         try:
             pid = process.pid
         except Exception:
             pid = 'unknown'
 
-        _log_shutdown_step(f"正在停止 {app_name} (pid={pid})")
+        _log_shutdown_step(f"Stopping {app_name} (pid={pid})")
         process.terminate()
         
-        # 等待进程结束
+        # Wait for process to exit
         try:
             process.wait(timeout=5)
-            _log_shutdown_step(f"{app_name} 退出完成，returncode={process.returncode}")
+            _log_shutdown_step(f"{app_name} exited, returncode={process.returncode}")
         except subprocess.TimeoutExpired:
-            _log_shutdown_step(f"{app_name} 终止超时，尝试强制结束 (pid={pid})")
+            _log_shutdown_step(f"{app_name} termination timed out, attempting force kill (pid={pid})")
             process.kill()
             process.wait()
-            _log_shutdown_step(f"{app_name} 已强制结束，returncode={process.returncode}")
+            _log_shutdown_step(f"{app_name} force killed, returncode={process.returncode}")
         
         processes[app_name]['process'] = None
         processes[app_name]['status'] = 'stopped'
         processes[app_name]['healthcheck_started_at'] = None
         
-        return True, f"{app_name} 应用已停止"
+        return True, f"{app_name} application stopped"
         
     except Exception as e:
-        _log_shutdown_step(f"{app_name} 停止失败: {e}")
-        return False, f"停止失败: {str(e)}"
+        _log_shutdown_step(f"{app_name} stop failed: {e}")
+        return False, f"Stop failed: {str(e)}"
 
 HEALTHCHECK_PATH = "/_stcore/health"
 HEALTHCHECK_PROXIES = {'http': None, 'https': None}
@@ -759,17 +759,17 @@ def _healthcheck_grace_active(app_name: str) -> bool:
 
 def _log_healthcheck_failure(app_name: str, exc: Exception):
     if _healthcheck_grace_active(app_name):
-        logger.debug(f"正在启动{app_name}，请等待")
+        logger.debug(f"Starting {app_name}, please wait")
         return
-    logger.warning(f"{app_name} 健康检查失败: {exc}")
+    logger.warning(f"{app_name} health check failed: {exc}")
 
 
 def check_app_status():
-    """检查应用状态"""
+    """Check the status of all applications."""
     for app_name, info in processes.items():
         if info['process'] is not None:
             if info['process'].poll() is None:
-                # 进程仍在运行，检查端口是否可访问
+                # Process is still running, check if port is accessible
                 try:
                     response = requests.get(
                         _build_healthcheck_url(info['port']),
@@ -784,22 +784,22 @@ def check_app_status():
                     _log_healthcheck_failure(app_name, exc)
                     info['status'] = 'starting'
             else:
-                # 进程已结束
+                # Process has exited
                 info['process'] = None
                 info['status'] = 'stopped'
                 info['healthcheck_started_at'] = None
 
 def wait_for_app_startup(app_name, max_wait_time=90):
-    """等待应用启动完成"""
+    """Wait for an application to finish starting up."""
     import time
     start_time = time.time()
     while time.time() - start_time < max_wait_time:
         info = processes[app_name]
         if info['process'] is None:
-            return False, "进程已停止"
+            return False, "Process has stopped"
         
         if info['process'].poll() is not None:
-            return False, "进程启动失败"
+            return False, "Process startup failed"
         
         try:
             response = requests.get(
@@ -809,17 +809,17 @@ def wait_for_app_startup(app_name, max_wait_time=90):
             )
             if response.status_code == 200:
                 info['status'] = 'running'
-                return True, "启动成功"
+                return True, "Startup successful"
         except Exception as exc:
             _log_healthcheck_failure(app_name, exc)
 
         time.sleep(1)
 
-    return False, "启动超时"
+    return False, "Startup timed out"
 
 def cleanup_processes():
-    """清理所有进程"""
-    _log_shutdown_step("开始串行清理子进程")
+    """Clean up all processes."""
+    _log_shutdown_step("Starting serial cleanup of child processes")
     for app_name in STREAMLIT_SCRIPTS:
         stop_streamlit_app(app_name)
 
@@ -827,34 +827,34 @@ def cleanup_processes():
     try:
         stop_forum_engine()
     except Exception:  # pragma: no cover
-        logger.exception("停止ForumEngine失败")
-    _log_shutdown_step("子进程清理完成")
+        logger.exception("Failed to stop ForumEngine")
+    _log_shutdown_step("Child process cleanup complete")
     _set_system_state(started=False, starting=False)
 
 def cleanup_processes_concurrent(timeout: float = 6.0):
-    """并发清理所有子进程，超时后强制杀掉残留进程。"""
-    _log_shutdown_step(f"开始并发清理子进程（超时 {timeout}s）")
-    _log_shutdown_step("仅终止当前控制台启动并记录的子进程，不做端口扫描")
+    """Concurrently clean up all child processes, force-killing any survivors after timeout."""
+    _log_shutdown_step(f"Starting concurrent cleanup of child processes (timeout {timeout}s)")
+    _log_shutdown_step("Only terminating child processes started and tracked by this console, no port scanning")
     running_before = _describe_running_children()
     if running_before:
-        _log_shutdown_step("当前存活子进程: " + ", ".join(running_before))
+        _log_shutdown_step("Currently alive child processes: " + ", ".join(running_before))
     else:
-        _log_shutdown_step("未检测到存活子进程，仍将发送关闭指令")
+        _log_shutdown_step("No alive child processes detected, shutdown signals will still be sent")
 
     threads = []
 
-    # 并发关闭 Streamlit 子进程
+    # Concurrently shut down Streamlit child processes
     for app_name in STREAMLIT_SCRIPTS:
         t = threading.Thread(target=stop_streamlit_app, args=(app_name,), daemon=True)
         threads.append(t)
         t.start()
 
-    # 并发关闭 ForumEngine
+    # Concurrently shut down ForumEngine
     forum_thread = threading.Thread(target=stop_forum_engine, daemon=True)
     threads.append(forum_thread)
     forum_thread.start()
 
-    # 等待所有线程完成，最多 timeout 秒
+    # Wait for all threads to complete, up to timeout seconds
     end_time = time.time() + timeout
     for t in threads:
         remaining = end_time - time.time()
@@ -862,51 +862,51 @@ def cleanup_processes_concurrent(timeout: float = 6.0):
             break
         t.join(timeout=remaining)
 
-    # 二次检查：强制杀掉仍存活的子进程
+    # Second check: force kill any still-alive child processes
     for app_name in STREAMLIT_SCRIPTS:
         proc = processes[app_name]['process']
         if proc is not None and proc.poll() is None:
             try:
-                _log_shutdown_step(f"{app_name} 进程仍存活，触发二次终止 (pid={proc.pid})")
+                _log_shutdown_step(f"{app_name} process still alive, triggering second termination (pid={proc.pid})")
                 proc.terminate()
                 proc.wait(timeout=1)
             except Exception:
                 try:
-                    _log_shutdown_step(f"{app_name} 二次终止失败，尝试kill (pid={proc.pid})")
+                    _log_shutdown_step(f"{app_name} second termination failed, attempting kill (pid={proc.pid})")
                     proc.kill()
                     proc.wait(timeout=1)
                 except Exception:
-                    logger.warning(f"{app_name} 进程强制退出失败，继续关机")
+                    logger.warning(f"{app_name} force exit failed, continuing shutdown")
             finally:
                 processes[app_name]['process'] = None
                 processes[app_name]['status'] = 'stopped'
 
     processes['forum']['status'] = 'stopped'
-    _log_shutdown_step("并发清理结束，标记系统未启动")
+    _log_shutdown_step("Concurrent cleanup finished, marking system as not started")
     _set_system_state(started=False, starting=False)
 
 def _schedule_server_shutdown(delay_seconds: float = 0.1):
-    """在清理完成后尽快退出，避免阻塞当前请求。"""
+    """Exit as soon as cleanup is complete to avoid blocking the current request."""
     def _shutdown():
         time.sleep(delay_seconds)
         try:
             socketio.stop()
         except Exception as exc:  # pragma: no cover
-            logger.warning(f"SocketIO 停止时异常，继续退出: {exc}")
-        _log_shutdown_step("SocketIO 停止指令已发送，即将退出主进程")
+            logger.warning(f"SocketIO stop raised an exception, continuing exit: {exc}")
+        _log_shutdown_step("SocketIO stop signal sent, main process will exit shortly")
         os._exit(0)
 
     threading.Thread(target=_shutdown, daemon=True).start()
 
 def _start_async_shutdown(cleanup_timeout: float = 3.0):
-    """异步触发清理并强制退出，避免HTTP请求阻塞。"""
-    _log_shutdown_step(f"收到关机指令，启动异步清理（超时 {cleanup_timeout}s）")
+    """Asynchronously trigger cleanup and force exit to avoid blocking HTTP requests."""
+    _log_shutdown_step(f"Shutdown command received, starting async cleanup (timeout {cleanup_timeout}s)")
 
     def _force_exit():
-        _log_shutdown_step("关机超时，触发强制退出")
+        _log_shutdown_step("Shutdown timed out, triggering forced exit")
         os._exit(0)
 
-    # 硬超时保护，即便清理线程异常也能退出
+    # Hard timeout guard — exits even if the cleanup thread raises an exception
     hard_timeout = cleanup_timeout + 2.0
     force_timer = threading.Timer(hard_timeout, _force_exit)
     force_timer.daemon = True
@@ -916,24 +916,24 @@ def _start_async_shutdown(cleanup_timeout: float = 3.0):
         try:
             cleanup_processes_concurrent(timeout=cleanup_timeout)
         except Exception as exc:  # pragma: no cover
-            logger.exception(f"关机清理异常: {exc}")
+            logger.exception(f"Shutdown cleanup exception: {exc}")
         finally:
-            _log_shutdown_step("清理线程结束，调度主进程退出")
+            _log_shutdown_step("Cleanup thread finished, scheduling main process exit")
             _schedule_server_shutdown(0.05)
 
     threading.Thread(target=_cleanup_and_exit, daemon=True).start()
 
-# 注册清理函数
+# Register cleanup function
 atexit.register(cleanup_processes)
 
 @app.route('/')
 def index():
-    """主页"""
+    """Home page."""
     return render_template('index.html')
 
 @app.route('/api/status')
 def get_status():
-    """获取所有应用状态"""
+    """Get the status of all applications."""
     check_app_status()
     return jsonify({
         app_name: {
@@ -946,22 +946,22 @@ def get_status():
 
 @app.route('/api/start/<app_name>')
 def start_app(app_name):
-    """启动指定应用"""
+    """Start the specified application."""
     if app_name not in processes:
-        return jsonify({'success': False, 'message': '未知应用'})
+        return jsonify({'success': False, 'message': 'Unknown application'})
 
     if app_name == 'forum':
         try:
             start_forum_engine()
             processes['forum']['status'] = 'running'
-            return jsonify({'success': True, 'message': 'ForumEngine已启动'})
+            return jsonify({'success': True, 'message': 'ForumEngine started'})
         except Exception as exc:  # pragma: no cover
-            logger.exception("手动启动ForumEngine失败")
-            return jsonify({'success': False, 'message': f'ForumEngine启动失败: {exc}'})
+            logger.exception("Failed to manually start ForumEngine")
+            return jsonify({'success': False, 'message': f'ForumEngine startup failed: {exc}'})
 
     script_path = STREAMLIT_SCRIPTS.get(app_name)
     if not script_path:
-        return jsonify({'success': False, 'message': '该应用不支持启动操作'})
+        return jsonify({'success': False, 'message': 'This application does not support the start operation'})
 
     success, message = start_streamlit_app(
         app_name,
@@ -970,38 +970,38 @@ def start_app(app_name):
     )
 
     if success:
-        # 等待应用启动
+        # Wait for application to start
         startup_success, startup_message = wait_for_app_startup(app_name, 15)
         if not startup_success:
-            message += f" 但启动检查失败: {startup_message}"
+            message += f" but startup check failed: {startup_message}"
     
     return jsonify({'success': success, 'message': message})
 
 @app.route('/api/stop/<app_name>')
 def stop_app(app_name):
-    """停止指定应用"""
+    """Stop the specified application."""
     if app_name not in processes:
-        return jsonify({'success': False, 'message': '未知应用'})
+        return jsonify({'success': False, 'message': 'Unknown application'})
 
     if app_name == 'forum':
         try:
             stop_forum_engine()
             processes['forum']['status'] = 'stopped'
-            return jsonify({'success': True, 'message': 'ForumEngine已停止'})
+            return jsonify({'success': True, 'message': 'ForumEngine stopped'})
         except Exception as exc:  # pragma: no cover
-            logger.exception("手动停止ForumEngine失败")
-            return jsonify({'success': False, 'message': f'ForumEngine停止失败: {exc}'})
+            logger.exception("Failed to manually stop ForumEngine")
+            return jsonify({'success': False, 'message': f'ForumEngine stop failed: {exc}'})
 
     success, message = stop_streamlit_app(app_name)
     return jsonify({'success': success, 'message': message})
 
 @app.route('/api/output/<app_name>')
 def get_output(app_name):
-    """获取应用输出"""
+    """Get application output."""
     if app_name not in processes:
-        return jsonify({'success': False, 'message': '未知应用'})
+        return jsonify({'success': False, 'message': 'Unknown application'})
     
-    # 特殊处理Forum Engine
+    # Special handling for Forum Engine
     if app_name == 'forum':
         try:
             forum_log_content = read_log_from_file('forum')
@@ -1011,9 +1011,9 @@ def get_output(app_name):
                 'total_lines': len(forum_log_content)
             })
         except Exception as e:
-            return jsonify({'success': False, 'message': f'读取forum日志失败: {str(e)}'})
+            return jsonify({'success': False, 'message': f'Failed to read forum log: {str(e)}'})
     
-    # 从文件读取完整日志
+    # Read full log from file
     output_lines = read_log_from_file(app_name)
     
     return jsonify({
@@ -1023,15 +1023,15 @@ def get_output(app_name):
 
 @app.route('/api/test_log/<app_name>')
 def test_log(app_name):
-    """测试日志写入功能"""
+    """Test log writing functionality."""
     if app_name not in processes:
-        return jsonify({'success': False, 'message': '未知应用'})
+        return jsonify({'success': False, 'message': 'Unknown application'})
     
-    # 写入测试消息
-    test_msg = f"[{datetime.now().strftime('%H:%M:%S')}] 测试日志消息 - {datetime.now()}"
+    # Write test message
+    test_msg = f"[{datetime.now().strftime('%H:%M:%S')}] Test log message - {datetime.now()}"
     write_log_to_file(app_name, test_msg)
     
-    # 通过Socket.IO发送
+    # Send via Socket.IO
     socketio.emit('console_output', {
         'app': app_name,
         'line': test_msg
@@ -1039,35 +1039,35 @@ def test_log(app_name):
     
     return jsonify({
         'success': True,
-        'message': f'测试消息已写入 {app_name} 日志'
+        'message': f'Test message written to {app_name} log'
     })
 
 @app.route('/api/forum/start')
 def start_forum_monitoring_api():
-    """手动启动ForumEngine论坛"""
+    """Manually start the ForumEngine forum."""
     try:
         from ForumEngine.monitor import start_forum_monitoring
         success = start_forum_monitoring()
         if success:
-            return jsonify({'success': True, 'message': 'ForumEngine论坛已启动'})
+            return jsonify({'success': True, 'message': 'ForumEngine forum started'})
         else:
-            return jsonify({'success': False, 'message': 'ForumEngine论坛启动失败'})
+            return jsonify({'success': False, 'message': 'ForumEngine forum startup failed'})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'启动论坛失败: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Failed to start forum: {str(e)}'})
 
 @app.route('/api/forum/stop')
 def stop_forum_monitoring_api():
-    """手动停止ForumEngine论坛"""
+    """Manually stop the ForumEngine forum."""
     try:
         from ForumEngine.monitor import stop_forum_monitoring
         stop_forum_monitoring()
-        return jsonify({'success': True, 'message': 'ForumEngine论坛已停止'})
+        return jsonify({'success': True, 'message': 'ForumEngine forum stopped'})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'停止论坛失败: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Failed to stop forum: {str(e)}'})
 
 @app.route('/api/forum/log')
 def get_forum_log():
-    """获取ForumEngine的forum.log内容"""
+    """Get the contents of ForumEngine's forum.log."""
     try:
         forum_log_file = LOG_DIR / "forum.log"
         if not forum_log_file.exists():
@@ -1082,7 +1082,7 @@ def get_forum_log():
             lines = f.readlines()
             lines = [line.rstrip('\n\r') for line in lines if line.strip()]
         
-        # 解析每一行日志并提取对话信息
+        # Parse each log line and extract conversation information
         parsed_messages = []
         for line in lines:
             parsed_message = parse_forum_log_line(line)
@@ -1096,15 +1096,15 @@ def get_forum_log():
             'total_lines': len(lines)
         })
     except Exception as e:
-        return jsonify({'success': False, 'message': f'读取forum.log失败: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Failed to read forum.log: {str(e)}'})
 
 @app.route('/api/forum/log/history', methods=['POST'])
 def get_forum_log_history():
-    """获取Forum历史日志（支持从指定位置开始）"""
+    """Get forum history log (supports reading from a specified position)."""
     try:
         data = request.get_json()
-        start_position = data.get('position', 0)  # 客户端上次接收的位置
-        max_lines = data.get('max_lines', 1000)   # 最多返回的行数
+        start_position = data.get('position', 0)  # Last received position from the client
+        max_lines = data.get('max_lines', 1000)   # Maximum number of lines to return
 
         forum_log_file = LOG_DIR / "forum.log"
         if not forum_log_file.exists():
@@ -1116,7 +1116,7 @@ def get_forum_log_history():
             })
 
         with open(forum_log_file, 'r', encoding='utf-8', errors='ignore') as f:
-            # 从指定位置开始读取
+            # Read from the specified position
             f.seek(start_position)
             lines = []
             line_count = 0
@@ -1126,17 +1126,17 @@ def get_forum_log_history():
                     break
                 line = line.rstrip('\n\r')
                 if line.strip():
-                    # 添加时间戳
+                    # Add timestamp
                     timestamp = datetime.now().strftime('%H:%M:%S')
                     formatted_line = f"[{timestamp}] {line}"
                     lines.append(formatted_line)
                     line_count += 1
 
-            # 记录当前位置
+            # Record current position
             current_position = f.tell()
 
-            # 检查是否还有更多内容
-            f.seek(0, 2)  # 移到文件末尾
+            # Check if there is more content
+            f.seek(0, 2)  # Seek to end of file
             end_position = f.tell()
             has_more = current_position < end_position
 
@@ -1147,35 +1147,35 @@ def get_forum_log_history():
             'has_more': has_more
         })
     except Exception as e:
-        return jsonify({'success': False, 'message': f'读取forum历史失败: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Failed to read forum history: {str(e)}'})
 
 @app.route('/api/search', methods=['POST'])
 def search():
-    """统一搜索接口"""
+    """Unified search interface."""
     data = request.get_json()
     query = data.get('query', '').strip()
     
     if not query:
-        return jsonify({'success': False, 'message': '搜索查询不能为空'})
+        return jsonify({'success': False, 'message': 'Search query cannot be empty'})
     
-    # ForumEngine论坛已经在后台运行，会自动检测搜索活动
-    # logger.info("ForumEngine: 搜索请求已收到，论坛将自动检测日志变化")
+    # ForumEngine forum is already running in the background and will automatically detect search activity
+    # logger.info("ForumEngine: Search request received, forum will automatically detect log changes")
     
-    # 检查哪些应用正在运行
+    # Check which applications are currently running
     check_app_status()
     running_apps = [name for name, info in processes.items() if info['status'] == 'running']
     
     if not running_apps:
-        return jsonify({'success': False, 'message': '没有运行中的应用'})
+        return jsonify({'success': False, 'message': 'No running applications'})
     
-    # 向运行中的应用发送搜索请求
+    # Send search request to running applications
     results = {}
     api_ports = {'insight': 8501, 'media': 8502, 'query': 8503}
     
     for app_name in running_apps:
         try:
             api_port = api_ports[app_name]
-            # 调用Streamlit应用的API端点
+            # Call the Streamlit application's API endpoint
             response = requests.post(
                 f"http://localhost:{api_port}/api/search",
                 json={'query': query},
@@ -1184,12 +1184,12 @@ def search():
             if response.status_code == 200:
                 results[app_name] = response.json()
             else:
-                results[app_name] = {'success': False, 'message': 'API调用失败'}
+                results[app_name] = {'success': False, 'message': 'API call failed'}
         except Exception as e:
             results[app_name] = {'success': False, 'message': str(e)}
     
-    # 搜索完成后可以选择停止监控，或者让它继续运行以捕获后续的处理日志
-    # 这里我们让监控继续运行，用户可以通过其他接口手动停止
+    # After the search completes, monitoring can be stopped or left running to capture subsequent processing logs
+    # Here we let monitoring continue; users can manually stop it via other endpoints
     
     return jsonify({
         'success': True,
@@ -1205,8 +1205,8 @@ def get_config():
         config_values = read_config_values()
         return jsonify({'success': True, 'config': config_values})
     except Exception as exc:
-        logger.exception("读取配置失败")
-        return jsonify({'success': False, 'message': f'读取配置失败: {exc}'}), 500
+        logger.exception("Failed to read config")
+        return jsonify({'success': False, 'message': f'Failed to read config: {exc}'}), 500
 
 
 @app.route('/api/config', methods=['POST'])
@@ -1214,7 +1214,7 @@ def update_config():
     """Update configuration values and persist them to config.py."""
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict) or not payload:
-        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+        return jsonify({'success': False, 'message': 'Request body cannot be empty'}), 400
 
     updates = {}
     for key, value in payload.items():
@@ -1222,20 +1222,20 @@ def update_config():
             updates[key] = value if value is not None else ''
 
     if not updates:
-        return jsonify({'success': False, 'message': '没有可更新的配置项'}), 400
+        return jsonify({'success': False, 'message': 'No updatable configuration entries'}), 400
 
     try:
         write_config_values(updates)
         updated_config = read_config_values()
         return jsonify({'success': True, 'config': updated_config})
     except Exception as exc:
-        logger.exception("更新配置失败")
-        return jsonify({'success': False, 'message': f'更新配置失败: {exc}'}), 500
+        logger.exception("Failed to update config")
+        return jsonify({'success': False, 'message': f'Failed to update config: {exc}'}), 500
 
 
 @app.route('/api/system/status')
 def get_system_status():
-    """返回系统启动状态。"""
+    """Return the system startup status."""
     state = _get_system_state()
     return jsonify({
         'success': True,
@@ -1246,7 +1246,7 @@ def get_system_status():
 
 @app.route('/api/system/start', methods=['POST'])
 def start_system():
-    """在接收到请求后启动完整系统。"""
+    """Start the full system after receiving a request."""
     allowed, message = _prepare_system_start()
     if not allowed:
         return jsonify({'success': False, 'message': message}), 400
@@ -1255,28 +1255,28 @@ def start_system():
         success, logs, errors = initialize_system_components()
         if success:
             _set_system_state(started=True)
-            return jsonify({'success': True, 'message': '系统启动成功', 'logs': logs})
+            return jsonify({'success': True, 'message': 'System started successfully', 'logs': logs})
 
         _set_system_state(started=False)
         return jsonify({
             'success': False,
-            'message': '系统启动失败',
+            'message': 'System startup failed',
             'logs': logs,
             'errors': errors
         }), 500
-    except Exception as exc:  # pragma: no cover - 保底捕获
-        logger.exception("系统启动过程中出现异常")
+    except Exception as exc:  # pragma: no cover - safety catch
+        logger.exception("Exception occurred during system startup")
         _set_system_state(started=False)
-        return jsonify({'success': False, 'message': f'系统启动异常: {exc}'}), 500
+        return jsonify({'success': False, 'message': f'System startup exception: {exc}'}), 500
     finally:
         _set_system_state(starting=False)
 
 @app.route('/api/system/shutdown', methods=['POST'])
 def shutdown_system():
-    """优雅停止所有组件并关闭当前服务进程。"""
+    """Gracefully stop all components and shut down the current service process."""
     state = _get_system_state()
     if state['starting']:
-        return jsonify({'success': False, 'message': '系统正在启动/重启，请稍候'}), 400
+        return jsonify({'success': False, 'message': 'System is starting/restarting, please wait'}), 400
 
     target_ports = [
         f"{name}:{info['port']}"
@@ -1284,43 +1284,43 @@ def shutdown_system():
         if info.get('port')
     ]
 
-    # 已有关机请求执行中时，返回当前存活的子进程，便于前端判断进度
+    # If a shutdown is already in progress, return the currently alive child processes for frontend progress tracking
     if not _mark_shutdown_requested():
         running = _describe_running_children()
-        detail = '关机指令已下发，请稍等...'
+        detail = 'Shutdown command already issued, please wait...'
         if running:
-            detail = f"关机指令已下发，等待进程退出: {', '.join(running)}"
+            detail = f"Shutdown command issued, waiting for processes to exit: {', '.join(running)}"
         if target_ports:
-            detail = f"{detail}（端口: {', '.join(target_ports)}）"
+            detail = f"{detail} (ports: {', '.join(target_ports)})"
         return jsonify({'success': True, 'message': detail, 'ports': target_ports})
 
     running = _describe_running_children()
     if running:
-        _log_shutdown_step("开始关闭系统，正在等待子进程退出: " + ", ".join(running))
+        _log_shutdown_step("Shutting down system, waiting for child processes to exit: " + ", ".join(running))
     else:
-        _log_shutdown_step("开始关闭系统，未检测到存活子进程")
+        _log_shutdown_step("Shutting down system, no alive child processes detected")
 
     try:
         _set_system_state(started=False, starting=False)
         _start_async_shutdown(cleanup_timeout=6.0)
-        message = '关闭系统指令已下发，正在停止进程'
+        message = 'Shutdown command issued, stopping processes'
         if running:
             message = f"{message}: {', '.join(running)}"
         if target_ports:
-            message = f"{message}（端口: {', '.join(target_ports)}）"
+            message = f"{message} (ports: {', '.join(target_ports)})"
         return jsonify({'success': True, 'message': message, 'ports': target_ports})
-    except Exception as exc:  # pragma: no cover - 兜底捕获
-        logger.exception("系统关闭过程中出现异常")
-        return jsonify({'success': False, 'message': f'系统关闭异常: {exc}'}), 500
+    except Exception as exc:  # pragma: no cover - safety catch
+        logger.exception("Exception occurred during system shutdown")
+        return jsonify({'success': False, 'message': f'System shutdown exception: {exc}'}), 500
 
 @socketio.on('connect')
 def handle_connect():
-    """客户端连接"""
+    """Client connected."""
     emit('status', 'Connected to Flask server')
 
 @socketio.on('request_status')
 def handle_status_request():
-    """请求状态更新"""
+    """Request a status update."""
     check_app_status()
     emit('status_update', {
         app_name: {
@@ -1331,18 +1331,18 @@ def handle_status_request():
     })
 
 if __name__ == '__main__':
-    # 从配置文件读取 HOST 和 PORT
+    # Read HOST and PORT from config
     from config import settings
     HOST = settings.HOST
     PORT = settings.PORT
     
-    logger.info("等待配置确认，系统将在前端指令后启动组件...")
-    logger.info(f"Flask服务器已启动，访问地址: http://{HOST}:{PORT}")
+    logger.info("Waiting for configuration confirmation, components will start after a frontend command...")
+    logger.info(f"Flask server started, access at: http://{HOST}:{PORT}")
     
     try:
         socketio.run(app, host=HOST, port=PORT, debug=False)
     except KeyboardInterrupt:
-        logger.info("\n正在关闭应用...")
+        logger.info("\nShutting down application...")
         cleanup_processes()
         
     
