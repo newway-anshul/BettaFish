@@ -1,23 +1,31 @@
 """
-专为 AI Agent 设计的多模态搜索工具集 (Bocha)
+Multimodal Search Toolkit Designed for AI Agents (Bocha)
 
-版本: 1.1
-最后更新: 2025-08-22
+Version: 1.1
+Last Updated: 2025-08-22
 
-此脚本将复杂的 Bocha AI Search 功能分解为一系列目标明确、参数极少的独立工具，
-专为 AI Agent 调用而设计。Agent 只需根据任务意图（如常规搜索、查找结构化数据或时效性新闻）
-选择合适的工具，无需理解复杂的参数组合。
+This script breaks down the complex Bocha AI Search capabilities into a series of
+independent tools with clear purposes and minimal parameters, specifically designed
+for AI Agent use. The agent only needs to choose the appropriate tool based on the
+task intent, such as general search, structured data lookup, or time-sensitive news,
+without needing to understand complex parameter combinations.
 
-核心特性:
-- 强大多模态能力: 能同时返回网页、图片、AI总结、追问建议，以及丰富的“模态卡”结构化数据。
-- 模态卡支持: 针对天气、股票、汇率、百科、医疗等特定查询，可直接返回结构化数据卡片，便于Agent直接解析和使用。
+Core Features:
+- Powerful multimodal capabilities: can return web pages, images, AI summaries,
+    follow-up suggestions, and rich structured "modal card" data at the same time.
+- Modal card support: for specific queries such as weather, stocks, exchange rates,
+    encyclopedia entries, and healthcare topics, structured data cards can be returned
+    directly for easy parsing and use by the agent.
 
-主要工具:
-- comprehensive_search: 执行全面搜索，返回网页、图片、AI总结及可能的模态卡。
-- search_for_structured_data: 专门用于查询天气、股票、汇率等可触发“模态卡”的结构化信息。
-- web_search_only: 执行纯网页搜索，不请求AI总结，速度更快。
-- search_last_24_hours: 获取过去24小时内的最新信息。
-- search_last_week: 获取过去一周内的主要报道。
+Main Tools:
+- comprehensive_search: performs a full search and returns web pages, images,
+    AI summaries, and possible modal cards.
+- search_for_structured_data: specifically used to query structured information such
+    as weather, stocks, and exchange rates that may trigger modal cards.
+- web_search_only: performs a web-only search without requesting an AI summary,
+    making it faster.
+- search_last_24_hours: retrieves the latest information from the last 24 hours.
+- search_last_week: retrieves the major reports from the past week.
 """
 
 import os
@@ -29,13 +37,13 @@ from typing import List, Dict, Any, Optional, Literal
 from loguru import logger
 from config import settings
 
-# 运行前请确保已安装 requests 库: pip install requests
+# Make sure the requests library is installed before running: pip install requests
 try:
     import requests
 except ImportError:
-    raise ImportError("requests 库未安装，请运行 `pip install requests` 进行安装。")
+    raise ImportError("The requests library is not installed. Run `pip install requests` to install it.")
 
-# 添加utils目录到Python路径
+# Add the utils directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))
 utils_dir = os.path.join(root_dir, 'utils')
@@ -44,12 +52,12 @@ if utils_dir not in sys.path:
 
 from retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
 
-# --- 1. 数据结构定义 ---
+# --- 1. Data Structure Definitions ---
 from dataclasses import dataclass, field
 
 @dataclass
 class WebpageResult:
-    """网页搜索结果"""
+    """Web search result."""
     name: str
     url: str
     snippet: str
@@ -58,7 +66,7 @@ class WebpageResult:
 
 @dataclass
 class ImageResult:
-    """图片搜索结果"""
+    """Image search result."""
     name: str
     content_url: str
     host_page_url: Optional[str] = None
@@ -69,52 +77,52 @@ class ImageResult:
 @dataclass
 class ModalCardResult:
     """
-    模态卡结构化数据结果
-    这是 Bocha 搜索的核心特色，用于返回特定类型的结构化信息。
+    Structured modal card result.
+    This is a core Bocha Search feature used to return specific kinds of structured information.
     """
-    card_type: str  # 例如: weather_china, stock, baike_pro, medical_common
-    content: Dict[str, Any]  # 解析后的JSON内容
+    card_type: str  # Example: weather_china, stock, baike_pro, medical_common
+    content: Dict[str, Any]  # Parsed JSON content
 
 @dataclass
 class BochaResponse:
-    """封装 Bocha API 的完整返回结果，以便在工具间传递"""
+    """Encapsulates the full Bocha API response so it can be passed between tools."""
     query: str
     conversation_id: Optional[str] = None
-    answer: Optional[str] = None  # AI生成的总结答案
-    follow_ups: List[str] = field(default_factory=list) # AI生成的追问
+    answer: Optional[str] = None  # AI-generated summary answer
+    follow_ups: List[str] = field(default_factory=list) # AI-generated follow-up questions
     webpages: List[WebpageResult] = field(default_factory=list)
     images: List[ImageResult] = field(default_factory=list)
     modal_cards: List[ModalCardResult] = field(default_factory=list)
 
 @dataclass
 class AnspireResponse:
-    """封装 Anspire API 的完整返回结果，以便在工具间传递"""
+    """Encapsulates the full Anspire API response so it can be passed between tools."""
     query: str
     conversation_id: Optional[str] = None
     score: Optional[float] = None
     webpages: List[WebpageResult] = field(default_factory=list)
 
 
-# --- 2. 核心客户端与专用工具集 ---
+# --- 2. Core Clients and Specialized Toolsets ---
 
 class BochaMultimodalSearch:
     """
-    一个包含多种专用多模态搜索工具的客户端。
-    每个公共方法都设计为供 AI Agent 独立调用的工具。
+    A client that contains multiple specialized multimodal search tools.
+    Each public method is designed to be used independently by an AI Agent.
     """
 
     BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bocha.cn/v1/ai-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
-        初始化客户端。
+        Initialize the client.
         Args:
-            api_key: Bocha API密钥，若不提供则从环境变量 BOCHA_API_KEY 读取。
+            api_key: Bocha API key. If not provided, it will be read from the BOCHA_API_KEY environment variable.
         """
         if api_key is None:
             api_key = settings.BOCHA_WEB_SEARCH_API_KEY
             if not api_key:
-                raise ValueError("Bocha API Key未找到！请设置 BOCHA_API_KEY 环境变量或在初始化时提供")
+                raise ValueError("Bocha API Key not found. Set the BOCHA_API_KEY environment variable or provide it during initialization")
 
         self._headers = {
             'Authorization': f'Bearer {api_key}',
@@ -123,7 +131,7 @@ class BochaMultimodalSearch:
         }
 
     def _parse_search_response(self, response_dict: Dict[str, Any], query: str) -> BochaResponse:
-        """从API的原始字典响应中解析出结构化的BochaResponse对象"""
+        """Parse a structured BochaResponse object from the raw API dictionary response."""
 
         final_response = BochaResponse(query=query)
         final_response.conversation_id = response_dict.get('conversation_id')
@@ -141,7 +149,7 @@ class BochaMultimodalSearch:
             try:
                 content_data = json.loads(content_str)
             except json.JSONDecodeError:
-                # 如果内容不是合法的JSON字符串（例如纯文本的answer），则直接使用
+                # If the content is not a valid JSON string (for example, a plain text answer), use it directly.
                 content_data = content_str
 
             if msg_type == 'answer' and content_type == 'text':
@@ -170,7 +178,7 @@ class BochaMultimodalSearch:
                         width=content_data.get('width'),
                         height=content_data.get('height')
                     ))
-                # 所有其他 content_type 都视为模态卡
+                # Treat all other content_type values as modal cards.
                 else:
                     final_response.modal_cards.append(ModalCardResult(
                         card_type=content_type,
@@ -180,107 +188,112 @@ class BochaMultimodalSearch:
         return final_response
 
 
-    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=BochaResponse(query="搜索失败"))
+    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=BochaResponse(query="Search failed"))
     def _search_internal(self, **kwargs) -> BochaResponse:
-        """内部通用的搜索执行器，所有工具最终都调用此方法"""
+        """Internal shared search executor used by all tools."""
         query = kwargs.get("query", "Unknown Query")
         payload = {
-            "stream": False,  # Agent工具通常使用非流式以获取完整结果
+            "stream": False,  # Agent tools usually use non-streaming mode to get the full result.
         }
         payload.update(kwargs)
 
         try:
 
             response = requests.post(self.BOCHA_BASE_URL, headers=self._headers, json=payload, timeout=30)
-            response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
+            response.raise_for_status()  # Raise an exception if the HTTP status code is 4xx or 5xx.
 
             response_dict = response.json()
             if response_dict.get("code") != 200:
-                logger.error(f"API返回错误: {response_dict.get('msg', '未知错误')}")
+                logger.error(f"API returned an error: {response_dict.get('msg', 'Unknown error')}")
                 return BochaResponse(query=query)
 
             return self._parse_search_response(response_dict, query)
 
         except requests.exceptions.RequestException as e:
-            logger.exception(f"搜索时发生网络错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+            logger.exception(f"A network error occurred during search: {str(e)}")
+            raise e  # Let the retry mechanism catch and handle it.
         except Exception as e:
-            logger.exception(f"处理响应时发生未知错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+            logger.exception(f"An unknown error occurred while processing the response: {str(e)}")
+            raise e  # Let the retry mechanism catch and handle it.
 
-    # --- Agent 可用的工具方法 ---
+    # --- Tool Methods Available to the Agent ---
 
     def comprehensive_search(self, query: str, max_results: int = 10) -> BochaResponse:
         """
-        【工具】全面综合搜索: 执行一次标准的、包含所有信息类型的综合搜索。
-        返回网页、图片、AI总结、追问建议和可能的模态卡。这是最常用的通用搜索工具。
-        Agent可提供搜索查询(query)和可选的最大结果数(max_results)。
+        [Tool] Comprehensive search: performs a standard search that includes all types of information.
+        Returns web pages, images, an AI summary, follow-up suggestions, and possible modal cards.
+        This is the most commonly used general-purpose search tool.
+        The agent can provide a search query and an optional maximum number of results.
         """
-        logger.info(f"--- TOOL: 全面综合搜索 (query: {query}) ---")
+        logger.info(f"--- TOOL: Comprehensive search (query: {query}) ---")
         return self._search_internal(
             query=query,
             count=max_results,
-            answer=True  # 开启AI总结
+            answer=True  # Enable AI summary
         )
 
     def web_search_only(self, query: str, max_results: int = 15) -> BochaResponse:
         """
-        【工具】纯网页搜索: 只获取网页链接和摘要，不请求AI生成答案。
-        适用于需要快速获取原始网页信息，而不需要AI额外分析的场景。速度更快，成本更低。
+        [Tool] Web-only search: retrieves only web links and snippets without requesting an AI-generated answer.
+        Suitable when raw web information is needed quickly without additional AI analysis.
+        Faster and lower cost.
         """
-        logger.info(f"--- TOOL: 纯网页搜索 (query: {query}) ---")
+        logger.info(f"--- TOOL: Web-only search (query: {query}) ---")
         return self._search_internal(
             query=query,
             count=max_results,
-            answer=False # 关闭AI总结
+            answer=False # Disable AI summary
         )
 
     def search_for_structured_data(self, query: str) -> BochaResponse:
         """
-        【工具】结构化数据查询: 专门用于可能触发“模态卡”的查询。
-        当Agent意图是查询天气、股票、汇率、百科定义、火车票、汽车参数等结构化信息时，应优先使用此工具。
-        它会返回所有信息，但Agent应重点关注结果中的 `modal_cards` 部分。
+        [Tool] Structured data lookup: specifically used for queries that may trigger modal cards.
+        When the agent intends to query structured information such as weather, stocks,
+        exchange rates, encyclopedia definitions, train tickets, or car specifications,
+        this tool should be preferred.
+        It returns all information, but the agent should focus on the modal_cards section.
         """
-        logger.info(f"--- TOOL: 结构化数据查询 (query: {query}) ---")
-        # 实现上与 comprehensive_search 相同，但通过命名和文档引导Agent的意图
+        logger.info(f"--- TOOL: Structured data lookup (query: {query}) ---")
+        # Implementation-wise it is the same as comprehensive_search, but the name and docs guide agent intent.
         return self._search_internal(
             query=query,
-            count=5, # 结构化查询通常不需要太多网页结果
+            count=5, # Structured queries usually do not need many web results.
             answer=True
         )
 
     def search_last_24_hours(self, query: str) -> BochaResponse:
         """
-        【工具】搜索24小时内信息: 获取关于某个主题的最新动态。
-        此工具专门查找过去24小时内发布的内容。适用于追踪突发事件或最新进展。
+        [Tool] Search information from the last 24 hours: gets the latest updates on a topic.
+        This tool specifically looks for content published within the past 24 hours.
+        Suitable for tracking breaking events or the latest developments.
         """
-        logger.info(f"--- TOOL: 搜索24小时内信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: Search last 24 hours (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneDay', answer=True)
 
     def search_last_week(self, query: str) -> BochaResponse:
         """
-        【工具】搜索本周信息: 获取关于某个主题过去一周内的主要报道。
-        适用于进行周度舆情总结或回顾。
+        [Tool] Search information from the last week: gets the main reports on a topic from the past week.
+        Suitable for weekly public opinion summaries or reviews.
         """
-        logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: Search last week (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneWeek', answer=True)
 
 class AnspireAISearch:
     """
-    Anspire AI Search 客户端
+    Anspire AI Search client.
     """
     ANSPIRE_BASE_URL = settings.ANSPIRE_BASE_URL or "https://plugin.anspire.cn/api/ntsearch/search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
-        初始化客户端。
+        Initialize the client.
         Args:
-            api_key: Anspire API密钥，若不提供则从环境变量 ANSPIRE_API_KEY 读取。
+            api_key: Anspire API key. If not provided, it will be read from the ANSPIRE_API_KEY environment variable.
         """
         if api_key is None:
             api_key = settings.ANSPIRE_API_KEY
             if not api_key:
-                raise ValueError("Anspire API Key未找到！请设置 ANSPIRE_API_KEY 环境变量或在初始化时提供")
+                raise ValueError("Anspire API Key not found. Set the ANSPIRE_API_KEY environment variable or provide it during initialization")
 
         self._headers = {
             'Authorization': f'Bearer {api_key}',
@@ -305,9 +318,9 @@ class AnspireAISearch:
 
         return final_response
     
-    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=AnspireResponse(query="搜索失败"))
+    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=AnspireResponse(query="Search failed"))
     def _search_internal(self, **kwargs) -> AnspireResponse:
-        """内部通用的搜索执行器，所有工具最终都调用此方法"""
+        """Internal shared search executor used by all tools."""
         query = kwargs.get("query", "Unknown Query")
         payload = {
             "query": query,
@@ -319,23 +332,23 @@ class AnspireAISearch:
         
         try:
             response = requests.get(self.ANSPIRE_BASE_URL, headers=self._headers, params=payload, timeout=30)
-            response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
+            response.raise_for_status()  # Raise an exception if the HTTP status code is 4xx or 5xx.
 
             response_dict = response.json()
             return self._parse_search_response(response_dict, query)
         except requests.exceptions.RequestException as e:
-            logger.exception(f"搜索时发生网络错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+            logger.exception(f"A network error occurred during search: {str(e)}")
+            raise e  # Let the retry mechanism catch and handle it.
         except Exception as e:
-            logger.exception(f"处理响应时发生未知错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+            logger.exception(f"An unknown error occurred while processing the response: {str(e)}")
+            raise e  # Let the retry mechanism catch and handle it.
     
     def comprehensive_search(self, query: str, max_results: int = 10) -> AnspireResponse:
         """
-        【工具】综合搜索: 获取关于某个主题的全面信息，包括网页。
-        适用于需要多种信息来源的场景。
+        [Tool] Comprehensive search: gets broad information on a topic, including web pages.
+        Suitable for scenarios that need multiple information sources.
         """
-        logger.info(f"--- TOOL: 综合搜索 (query: {query}) ---")
+        logger.info(f"--- TOOL: Comprehensive search (query: {query}) ---")
         return self._search_internal(
             query=query,
             top_k=max_results
@@ -343,10 +356,11 @@ class AnspireAISearch:
 
     def search_last_24_hours(self, query: str, max_results: int = 10) -> AnspireResponse:
         """
-        【工具】搜索24小时内信息: 获取关于某个主题的最新动态。
-        此工具专门查找过去24小时内发布的内容。适用于追踪突发事件或最新进展。
+        [Tool] Search information from the last 24 hours: gets the latest updates on a topic.
+        This tool specifically looks for content published within the past 24 hours.
+        Suitable for tracking breaking events or the latest developments.
         """
-        logger.info(f"--- TOOL: 搜索24小时内信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: Search last 24 hours (query: {query}) ---")
         to_time = datetime.datetime.now()
         from_time = to_time - datetime.timedelta(days=1)
         return self._search_internal(query=query,
@@ -356,10 +370,10 @@ class AnspireAISearch:
 
     def search_last_week(self, query: str, max_results: int = 10) -> AnspireResponse:
         """
-        【工具】搜索本周信息: 获取关于某个主题过去一周内的主要报道。
-        适用于进行周度舆情总结或回顾。
+        [Tool] Search information from the last week: gets the main reports on a topic from the past week.
+        Suitable for weekly public opinion summaries or reviews.
         """
-        logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: Search last week (query: {query}) ---")
         to_time = datetime.datetime.now()
         from_time = to_time - datetime.timedelta(weeks=1)
         return self._search_internal(query=query,
@@ -368,152 +382,152 @@ class AnspireAISearch:
                                      ToTime=to_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
-# --- 3. 测试与使用示例 ---
+# --- 3. Tests and Usage Examples ---
 def load_agent_from_config():
-    """根据配置文件选择并加载搜索Agent"""
+    """Select and load the search agent based on the configuration."""
     if settings.BOCHA_WEB_SEARCH_API_KEY:
-        logger.info("加载 BochaMultimodalSearch Agent")
+        logger.info("Loading BochaMultimodalSearch Agent")
         return BochaMultimodalSearch()
     elif settings.ANSPIRE_API_KEY:
-        logger.info("加载 AnspireAISearch Agent")
+        logger.info("Loading AnspireAISearch Agent")
         return AnspireAISearch()
     else:
-        raise ValueError("未配置有效的搜索Agent")
+        raise ValueError("No valid search agent is configured")
 
 def print_response_summary(response):
-    """简化的打印函数，用于展示测试结果"""
+    """Simplified print function used to display test results."""
     if not response or not response.query:
-        logger.error("未能获取有效响应。")
+        logger.error("Failed to obtain a valid response.")
         return
 
-    logger.info(f"\n查询: '{response.query}' | 会话ID: {response.conversation_id}")
+    logger.info(f"\nQuery: '{response.query}' | Conversation ID: {response.conversation_id}")
     if hasattr(response, 'answer') and response.answer:
-        logger.info(f"AI摘要: {response.answer[:150]}...")
+        logger.info(f"AI summary: {response.answer[:150]}...")
 
-    logger.info(f"找到 {len(response.webpages)} 个网页")
+    logger.info(f"Found {len(response.webpages)} web pages")
     if hasattr(response, 'images'):
-        logger.info(f"找到 {len(response.images)} 张图片")
+        logger.info(f"Found {len(response.images)} images")
     if hasattr(response, 'modal_cards'):
-        logger.info(f"找到 {len(response.modal_cards)} 个模态卡")
+        logger.info(f"Found {len(response.modal_cards)} modal cards")
 
     if hasattr(response, 'modal_cards') and response.modal_cards:
         first_card = response.modal_cards[0]
-        logger.info(f"第一个模态卡类型: {first_card.card_type}")
+        logger.info(f"First modal card type: {first_card.card_type}")
 
     if response.webpages:
         first_result = response.webpages[0]
-        logger.info(f"第一条网页结果: {first_result.name}")
+        logger.info(f"First web result: {first_result.name}")
 
     if hasattr(response, 'follow_ups') and response.follow_ups:
-        logger.info(f"建议追问: {response.follow_ups}")
+        logger.info(f"Suggested follow-ups: {response.follow_ups}")
 
     logger.info("-" * 60)
 
 
 if __name__ == "__main__":
-    # 在运行前，请确保您已设置 BOCHA_API_KEY 环境变量
+    # Make sure the BOCHA_API_KEY environment variable is set before running.
 
     try:
-        # 初始化多模态搜索客户端，它内部包含了所有工具
+        # Initialize the multimodal search client, which contains all tools internally.
         search_client = load_agent_from_config()
 
-        # 场景1: Agent进行一次常规的、需要AI总结的综合搜索
-        response1 = search_client.comprehensive_search(query="人工智能对未来教育的影响")
+        # Scenario 1: The agent performs a routine comprehensive search that requires an AI summary.
+        response1 = search_client.comprehensive_search(query="The impact of artificial intelligence on the future of education")
         print_response_summary(response1)
 
-        # 场景2: Agent需要查询特定结构化信息 - 天气
+        # Scenario 2: The agent needs to query specific structured information - weather.
         if isinstance(search_client, BochaMultimodalSearch):
-            response2 = search_client.search_for_structured_data(query="上海明天天气怎么样")
+            response2 = search_client.search_for_structured_data(query="What will the weather be like in Shanghai tomorrow?")
             print_response_summary(response2)
-            # 深度解析第一个模态卡
+            # Deeply inspect the first modal card.
             if response2.modal_cards and response2.modal_cards[0].card_type == 'weather_china':
-                logger.info("天气模态卡详情:", json.dumps(response2.modal_cards[0].content, indent=2, ensure_ascii=False))
+                logger.info("Weather modal card details:", json.dumps(response2.modal_cards[0].content, indent=2, ensure_ascii=False))
 
 
-        # 场景3: Agent需要查询特定结构化信息 - 股票
+        # Scenario 3: The agent needs to query specific structured information - stock data.
         if isinstance(search_client, BochaMultimodalSearch):
-            response3 = search_client.search_for_structured_data(query="东方财富股票")
+            response3 = search_client.search_for_structured_data(query="Eastmoney stock")
             print_response_summary(response3)
 
-        # 场景4: Agent需要追踪某个事件的最新进展
-        response4 = search_client.search_last_24_hours(query="C929大飞机最新消息")
+        # Scenario 4: The agent needs to track the latest developments of an event.
+        response4 = search_client.search_last_24_hours(query="Latest updates on the C929 large aircraft")
         print_response_summary(response4)
 
-        # 场景5: Agent只需要快速获取网页信息，不需要AI总结
+        # Scenario 5: The agent only needs to quickly obtain web information without an AI summary.
         if isinstance(search_client, BochaMultimodalSearch):
-            response5 = search_client.web_search_only(query="Python dataclasses用法")
+            response5 = search_client.web_search_only(query="How to use Python dataclasses")
             print_response_summary(response5)
 
-        # 场景6: Agent需要回顾一周内关于某项技术的新闻
-        response6 = search_client.search_last_week(query="量子计算商业化")
+        # Scenario 6: The agent needs to review one week of news about a technology.
+        response6 = search_client.search_last_week(query="Commercialization of quantum computing")
         print_response_summary(response6)
 
-        '''下面是测试程序的输出：
-        --- TOOL: 全面综合搜索 (query: 人工智能对未来教育的影响) ---
+        '''Below is example output from the test program:
+        --- TOOL: Comprehensive search (query: The impact of artificial intelligence on the future of education) ---
 
-查询: '人工智能对未来教育的影响' | 会话ID: bf43bfe4c7bb4f7b8a3945515d8ab69e
-AI摘要: 人工智能对未来教育有着多方面的影响。
+Query: 'The impact of artificial intelligence on the future of education' | Conversation ID: bf43bfe4c7bb4f7b8a3945515d8ab69e
+AI summary: Artificial intelligence is influencing the future of education in many ways.
 
-从积极影响来看：
-- 在教学资源方面，人工智能有助于教育资源的均衡分配[引用:4]。例如通过人工智能云平台，可以实现优质资源的共享，这对于偏远地区来说意义重大，能让那里的学生也接触到优质的教育内 容，一定程度上缓解师资短缺的问题，因为AI驱动的智能教学助手或虚拟...
-找到 10 个网页, 1 张图片, 1 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 人工智能如何影响教育变革
-建议追问: [['人工智能将如何改变未来的教育模式？', '在未来教育中，人工智能会给教师带来哪些挑战？', '未来教育中，学生如何利用人工智能提升学习效果？']]
+From a positive perspective:
+- In terms of teaching resources, artificial intelligence helps promote a more balanced distribution of educational resources [Ref:4]. For example, AI cloud platforms can enable the sharing of high-quality resources, which is especially meaningful for remote areas. Students there can gain access to better educational content, which can partly relieve teacher shortages through AI-driven teaching assistants or virtual...
+Found 10 web pages, 1 image, and 1 modal card.
+First modal card type: video
+First web result: How artificial intelligence is transforming education
+Suggested follow-ups: [['How will artificial intelligence change future education models?', 'What challenges will artificial intelligence bring to teachers in future education?', 'How can students use artificial intelligence to improve learning outcomes in future education?']]
 ------------------------------------------------------------
---- TOOL: 结构化数据查询 (query: 上海明天天气怎么样) ---
+--- TOOL: Structured data lookup (query: What will the weather be like in Shanghai tomorrow?) ---
 
-查询: '上海明天天气怎么样' | 会话ID: e412aa1548cd43a295430e47a62adda2
-AI摘要: 根据所给信息，无法确定上海明天的天气情况。
+Query: 'What will the weather be like in Shanghai tomorrow?' | Conversation ID: e412aa1548cd43a295430e47a62adda2
+AI summary: Based on the provided information, it is not possible to determine tomorrow's weather in Shanghai.
 
-首先，所提供的信息都是关于2025年8月22日的天气状况，包括当天的气温、降水、风力、湿度以及高温预警等信息[引用:1][引用:2][引用:3][引用:5]。然而，这些信息没有涉及到明天（8月23 日）天气的预测内容。虽然提到了副热带高压一直到8月底高温都...
-找到 5 个网页, 1 张图片, 2 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 今日冲击38!上海八月高温天数和夏季持续高温天数有望双双破纪录_天气_低压_气象站
-建议追问: [['能告诉我上海明天的气温范围吗？', '上海明天会有降雨吗？', '上海明天的天气是晴天还是阴天呢？']]
+First, the available information is all about the weather conditions on August 22, 2025, including temperature, precipitation, wind, humidity, and high-temperature alerts [Ref:1][Ref:2][Ref:3][Ref:5]. However, it does not include a forecast for tomorrow, August 23. Although the subtropical high and continued heat through the end of August are mentioned...
+Found 5 web pages, 1 image, and 2 modal cards.
+First modal card type: video
+First web result: Temperatures may hit 38 today! Shanghai's August hot-day count and summer heat streak may both break records_weather_low pressure_weather station
+Suggested follow-ups: [['Can you tell me the temperature range in Shanghai tomorrow?', 'Will it rain in Shanghai tomorrow?', 'Will the weather in Shanghai tomorrow be sunny or cloudy?']]
 ------------------------------------------------------------
---- TOOL: 结构化数据查询 (query: 东方财富股票) ---
+--- TOOL: Structured data lookup (query: Eastmoney stock) ---
 
-查询: '东方财富股票' | 会话ID: 584d62ed97834473b967127852e1eaa0
-AI摘要: 仅根据提供的上下文，无法确切获取东方财富股票的相关信息。
+Query: 'Eastmoney stock' | Conversation ID: 584d62ed97834473b967127852e1eaa0
+AI summary: Based only on the provided context, it is not possible to obtain exact information about Eastmoney stock.
 
-从给出的这些数据来看，并没有直接表明与东方财富股票相关的特定数据。例如，没有东方财富股票的涨跌幅情况、成交量、市值等具体数据[引用:1][引用:3]。也没有涉及东方财富股票在研报 、评级方面的信息[引用:2]。同时，上下文里关于股票价格、成交...
-找到 5 个网页, 1 张图片, 2 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 股票价格_分时成交_行情_走势图—东方财富网
-建议追问: [['东方财富股票近期的走势如何？', '东方财富股票有哪些主要的投资亮点？', '东方财富股票的历史最高和最低股价是多少？']]
+From the available data, there is no direct information specifically describing Eastmoney stock. For example, there are no exact figures for price movement, trading volume, or market capitalization [Ref:1][Ref:3]. There is also no information related to research reports or ratings for Eastmoney stock [Ref:2]. At the same time, the surrounding context discussing stock prices and transactions...
+Found 5 web pages, 1 image, and 2 modal cards.
+First modal card type: video
+First web result: Stock price_intraday transactions_market_quotes_chart trends - Eastmoney
+Suggested follow-ups: [['How has Eastmoney stock performed recently?', 'What are the main investment highlights of Eastmoney stock?', 'What were the historical highest and lowest prices of Eastmoney stock?']]
 ------------------------------------------------------------
---- TOOL: 搜索24小时内信息 (query: C929大飞机最新消息) ---
+--- TOOL: Search last 24 hours (query: Latest updates on the C929 large aircraft) ---
 
-查询: 'C929大飞机最新消息' | 会话ID: 5904021dc29d497e938e04db18d7f2e2
-AI摘要: 根据提供的上下文，没有关于C929大飞机的直接消息，无法确切给出C929大飞机的最新消息。
+Query: 'Latest updates on the C929 large aircraft' | Conversation ID: 5904021dc29d497e938e04db18d7f2e2
+AI summary: Based on the provided context, there is no direct news about the C929 large aircraft, so no exact latest update can be given.
 
-目前提供的上下文涵盖了众多航空领域相关事件，但多是围绕波音787、空客A380相关专家的人事变动、国产飞机“C909云端之旅”、科德数控的营收情况、俄制航空发动机供应相关以及其他非C929大飞机相关的内容。...
-找到 10 个网页, 1 张图片, 1 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 放弃美国千万年薪,波音787顶尖专家回国,或可协助破解C929
-建议追问: [['C929大飞机目前的研发进度如何？', '有没有关于C929大飞机预计首飞时间的消息？', 'C929大飞机在技术创新方面有哪些新进展？']]
+The provided context covers many aviation-related events, but most of them focus on topics such as personnel changes involving Boeing 787 and Airbus A380 experts, the domestic aircraft "C909 cloud journey," Kede Numerical Control revenue, Russian aero-engine supply issues, and other topics unrelated to the C929 large aircraft...
+Found 10 web pages, 1 image, and 1 modal card.
+First modal card type: video
+First web result: Gave up a million-dollar US salary, top Boeing 787 expert returns to China and may help break through C929 challenges
+Suggested follow-ups: [['What is the current development progress of the C929 large aircraft?', 'Is there any news about the expected first flight time of the C929 large aircraft?', 'What new technological advances does the C929 large aircraft have?']]
 ------------------------------------------------------------
---- TOOL: 纯网页搜索 (query: Python dataclasses用法) ---
+--- TOOL: Web-only search (query: How to use Python dataclasses) ---
 
-查询: 'Python dataclasses用法' | 会话ID: 74c742759d2e4b17b52d8b735ce24537
-找到 15 个网页, 1 张图片, 1 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 不可不知的dataclasses  python小知识_python dataclasses-CSDN博客
+Query: 'How to use Python dataclasses' | Conversation ID: 74c742759d2e4b17b52d8b735ce24537
+Found 15 web pages, 1 image, and 1 modal card.
+First modal card type: video
+First web result: Essential dataclasses knowledge: Python tips_python dataclasses - CSDN Blog
 ------------------------------------------------------------
---- TOOL: 搜索本周信息 (query: 量子计算商业化) ---
+--- TOOL: Search last week (query: Commercialization of quantum computing) ---
 
-AI摘要: 量子计算商业化正在逐步推进。
+AI summary: The commercialization of quantum computing is gradually advancing.
 
-量子计算商业化有着多方面的体现和推动因素。从国际上看，美国能源部橡树岭国家实验室选择IQM Radiance作为其首台本地部署的量子计算机，计划于2025年第三季度交付并集成至高性能计算系统中[引用:4]；英国量子计算公司Oxford Ionics的全栈离子阱量子计算...
-找到 10 个网页, 1 张图片, 1 个模态卡。
-第一个模态卡类型: video
-第一条网页结果: 量子计算商业潜力释放正酣,微美全息(WIMI.US)创新科技卡位“生态高地”
-建议追问: [['量子计算商业化目前有哪些成功的案例？', '哪些公司在推动量子计算商业化进程？', '量子计算商业化面临的主要挑战是什么？']]
+Quantum computing commercialization is being reflected and driven in many ways. Internationally, the US Department of Energy's Oak Ridge National Laboratory selected IQM Radiance as its first locally deployed quantum computer, with delivery planned for the third quarter of 2025 and integration into a high-performance computing system [Ref:4]. Meanwhile, UK quantum computing company Oxford Ionics and its full-stack trapped-ion quantum computing...
+Found 10 web pages, 1 image, and 1 modal card.
+First modal card type: video
+First web result: The commercial potential of quantum computing is accelerating, and WiMi Hologram (WIMI.US) is staking out an innovation ecosystem high ground
+Suggested follow-ups: [['What successful cases of quantum computing commercialization exist so far?', 'Which companies are driving the commercialization of quantum computing?', 'What are the main challenges facing the commercialization of quantum computing?']]
 ------------------------------------------------------------'''
 
     except ValueError as e:
-        logger.exception(f"初始化失败: {e}")
-        logger.error("请确保 BOCHA_API_KEY 环境变量已正确设置。")
+        logger.exception(f"Initialization failed: {e}")
+        logger.error("Make sure the BOCHA_API_KEY environment variable is set correctly.")
     except Exception as e:
-        logger.exception(f"测试过程中发生未知错误: {e}")
+        logger.exception(f"An unknown error occurred during testing: {e}")
