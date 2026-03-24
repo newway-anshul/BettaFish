@@ -1,5 +1,5 @@
 """
-ForumEngine - 监控和记录三个Engine的SummaryNode和ReportFormattingNode输出
+ForumEngine - Monitor and record the SummaryNode and ReportFormattingNode outputs from the three Engines
 """
 
 from .monitor import LogMonitor
