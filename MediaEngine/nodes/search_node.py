@@ -1,6 +1,6 @@
 """
-搜索节点实现
-负责生成搜索查询和反思查询
+Search node implementations
+Responsible for generating search and reflection queries
 """
 
 import json
@@ -19,19 +19,19 @@ from ..utils.text_processing import (
 
 
 class FirstSearchNode(BaseNode):
-    """为段落生成首次搜索查询的节点"""
+    """Node that generates the initial search query for a paragraph."""
     
     def __init__(self, llm_client):
         """
-        初始化首次搜索节点
+        Initialize first-search node
         
         Args:
-            llm_client: LLM客户端
+            llm_client: LLM client
         """
         super().__init__(llm_client, "FirstSearchNode")
     
     def validate_input(self, input_data: Any) -> bool:
-        """验证输入数据"""
+        """Validate input data."""
         if isinstance(input_data, str):
             try:
                 data = json.loads(input_data)
@@ -44,88 +44,88 @@ class FirstSearchNode(BaseNode):
     
     def run(self, input_data: Any, **kwargs) -> Dict[str, str]:
         """
-        调用LLM生成搜索查询和理由
+        Call the LLM to generate a search query and rationale
         
         Args:
-            input_data: 包含title和content的字符串或字典
-            **kwargs: 额外参数
+            input_data: String or dictionary containing title and content
+            **kwargs: Additional arguments
             
         Returns:
-            包含search_query和reasoning的字典
+            Dictionary containing search_query and reasoning
         """
         try:
             if not self.validate_input(input_data):
-                raise ValueError("输入数据格式错误，需要包含title和content字段")
+                raise ValueError("Invalid input format. Expected title and content fields")
             
-            # 准备输入数据
+            # Prepare input data
             if isinstance(input_data, str):
                 message = input_data
             else:
                 message = json.dumps(input_data, ensure_ascii=False)
             
-            logger.info("正在生成首次搜索查询")
+            logger.info("Generating initial search query")
             
-            # 调用LLM
+            # Call LLM
             response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_FIRST_SEARCH, message)
             
-            # 处理响应
+            # Process response
             processed_response = self.process_output(response)
             
-            logger.info(f"生成搜索查询: {processed_response.get('search_query', 'N/A')}")
+            logger.info(f"Generated search query: {processed_response.get('search_query', 'N/A')}")
             return processed_response
             
         except Exception as e:
-            logger.exception(f"生成首次搜索查询失败: {str(e)}")
+            logger.exception(f"Failed to generate initial search query: {str(e)}")
             raise e
     
     def process_output(self, output: str) -> Dict[str, str]:
         """
-        处理LLM输出，提取搜索查询和推理
+        Process LLM output and extract search query and reasoning
         
         Args:
-            output: LLM原始输出
+            output: Raw LLM output
             
         Returns:
-            包含search_query和reasoning的字典
+            Dictionary containing search_query and reasoning
         """
         try:
-            # 清理响应文本
+            # Clean response text
             cleaned_output = remove_reasoning_from_output(output)
             cleaned_output = clean_json_tags(cleaned_output)
             
-            # 记录清理后的输出用于调试
-            logger.info(f"清理后的输出: {cleaned_output}")
+            # Log cleaned output for debugging
+            logger.info(f"Cleaned output: {cleaned_output}")
             
-            # 解析JSON
+            # Parse JSON
             try:
                 result = json.loads(cleaned_output)
-                logger.info("JSON解析成功")
+                logger.info("JSON parsed successfully")
             except JSONDecodeError as e:
-                logger.error(f"JSON解析失败: {str(e)}")
-                # 使用更强大的提取方法
+                logger.error(f"JSON parsing failed: {str(e)}")
+                # Use a more robust extraction method
                 result = extract_clean_response(cleaned_output)
                 if "error" in result:
-                    logger.error("JSON解析失败，尝试修复...")
-                    # 尝试修复JSON
+                    logger.error("JSON parsing failed; attempting repair...")
+                    # Try repairing JSON
                     fixed_json = fix_incomplete_json(cleaned_output)
                     if fixed_json:
                         try:
                             result = json.loads(fixed_json)
-                            logger.info("JSON修复成功")
+                            logger.info("JSON repaired successfully")
                         except JSONDecodeError:
-                            logger.error("JSON修复失败")
-                            # 返回默认查询
+                            logger.error("JSON repair failed")
+                            # Return default query
                             return self._get_default_search_query()
                     else:
-                        logger.error("无法修复JSON，使用默认查询")
+                        logger.error("Unable to repair JSON; using default query")
                         return self._get_default_search_query()
             
-            # 验证和清理结果
+            # Validate and clean result
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
             
             if not search_query:
-                logger.warning("未找到搜索查询，使用默认查询")
+                logger.warning("Search query not found; using default query")
                 return self._get_default_search_query()
             
             return {
@@ -134,37 +134,37 @@ class FirstSearchNode(BaseNode):
             }
             
         except Exception as e:
-            self.log_error(f"处理输出失败: {str(e)}")
-            # 返回默认查询
+            self.log_error(f"Output processing failed: {str(e)}")
+            # Return default query
             return self._get_default_search_query()
     
     def _get_default_search_query(self) -> Dict[str, str]:
         """
-        获取默认搜索查询
+        Get default search query
         
         Returns:
-            默认的搜索查询字典
+            Default search query dictionary
         """
         return {
-            "search_query": "相关主题研究",
-            "reasoning": "由于解析失败，使用默认搜索查询"
+            "search_query": "related topic research",
+            "reasoning": "Using the default search query because parsing failed"
         }
 
 
 class ReflectionNode(BaseNode):
-    """反思段落并生成新搜索查询的节点"""
+    """Node that reflects on a paragraph and generates a new search query."""
     
     def __init__(self, llm_client):
         """
-        初始化反思节点
+        Initialize reflection node
         
         Args:
-            llm_client: LLM客户端
+            llm_client: LLM client
         """
         super().__init__(llm_client, "ReflectionNode")
     
     def validate_input(self, input_data: Any) -> bool:
-        """验证输入数据"""
+        """Validate input data."""
         if isinstance(input_data, str):
             try:
                 data = json.loads(input_data)
@@ -179,88 +179,88 @@ class ReflectionNode(BaseNode):
     
     def run(self, input_data: Any, **kwargs) -> Dict[str, str]:
         """
-        调用LLM反思并生成搜索查询
+        Call the LLM to reflect and generate a search query
         
         Args:
-            input_data: 包含title、content和paragraph_latest_state的字符串或字典
-            **kwargs: 额外参数
+            input_data: String or dictionary containing title, content, and paragraph_latest_state
+            **kwargs: Additional arguments
             
         Returns:
-            包含search_query和reasoning的字典
+            Dictionary containing search_query and reasoning
         """
         try:
             if not self.validate_input(input_data):
-                raise ValueError("输入数据格式错误，需要包含title、content和paragraph_latest_state字段")
+                raise ValueError("Invalid input format. Expected title, content, and paragraph_latest_state fields")
             
-            # 准备输入数据
+            # Prepare input data
             if isinstance(input_data, str):
                 message = input_data
             else:
                 message = json.dumps(input_data, ensure_ascii=False)
             
-            logger.info("正在进行反思并生成新搜索查询")
+            logger.info("Reflecting and generating a new search query")
             
-            # 调用LLM
+            # Call LLM
             response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_REFLECTION, message)
             
-            # 处理响应
+            # Process response
             processed_response = self.process_output(response)
             
-            logger.info(f"反思生成搜索查询: {processed_response.get('search_query', 'N/A')}")
+            logger.info(f"Generated reflection query: {processed_response.get('search_query', 'N/A')}")
             return processed_response
             
         except Exception as e:
-            logger.exception(f"反思生成搜索查询失败: {str(e)}")
+            logger.exception(f"Failed to generate reflection query: {str(e)}")
             raise e
     
     def process_output(self, output: str) -> Dict[str, str]:
         """
-        处理LLM输出，提取搜索查询和推理
+        Process LLM output and extract search query and reasoning
         
         Args:
-            output: LLM原始输出
+            output: Raw LLM output
             
         Returns:
-            包含search_query和reasoning的字典
+            Dictionary containing search_query and reasoning
         """
         try:
-            # 清理响应文本
+            # Clean response text
             cleaned_output = remove_reasoning_from_output(output)
             cleaned_output = clean_json_tags(cleaned_output)
             
-            # 记录清理后的输出用于调试
-            logger.info(f"清理后的输出: {cleaned_output}")
+            # Log cleaned output for debugging
+            logger.info(f"Cleaned output: {cleaned_output}")
             
-            # 解析JSON
+            # Parse JSON
             try:
                 result = json.loads(cleaned_output)
-                logger.info("JSON解析成功")
+                logger.info("JSON parsed successfully")
             except JSONDecodeError as e:
-                logger.error(f"JSON解析失败: {str(e)}")
-                # 使用更强大的提取方法
+                logger.error(f"JSON parsing failed: {str(e)}")
+                # Use a more robust extraction method
                 result = extract_clean_response(cleaned_output)
                 if "error" in result:
-                    logger.error("JSON解析失败，尝试修复...")
-                    # 尝试修复JSON
+                    logger.error("JSON parsing failed; attempting repair...")
+                    # Try repairing JSON
                     fixed_json = fix_incomplete_json(cleaned_output)
                     if fixed_json:
                         try:
                             result = json.loads(fixed_json)
-                            logger.info("JSON修复成功")
+                            logger.info("JSON repaired successfully")
                         except JSONDecodeError:
-                            logger.error("JSON修复失败")
-                            # 返回默认查询
+                            logger.error("JSON repair failed")
+                            # Return default query
                             return self._get_default_reflection_query()
                     else:
-                        logger.error("无法修复JSON，使用默认查询")
+                        logger.error("Unable to repair JSON; using default query")
                         return self._get_default_reflection_query()
             
-            # 验证和清理结果
+            # Validate and clean result
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
             
             if not search_query:
-                logger.warning("未找到搜索查询，使用默认查询")
+                logger.warning("Search query not found; using default query")
                 return self._get_default_reflection_query()
             
             return {
@@ -269,18 +269,18 @@ class ReflectionNode(BaseNode):
             }
             
         except Exception as e:
-            logger.exception(f"处理输出失败: {str(e)}")
-            # 返回默认查询
+            logger.exception(f"Output processing failed: {str(e)}")
+            # Return default query
             return self._get_default_reflection_query()
     
     def _get_default_reflection_query(self) -> Dict[str, str]:
         """
-        获取默认反思搜索查询
+        Get default reflection search query
         
         Returns:
-            默认的反思搜索查询字典
+            Default reflection search query dictionary
         """
         return {
-            "search_query": "深度研究补充信息",
-            "reasoning": "由于解析失败，使用默认反思搜索查询"
+            "search_query": "supplementary deep research information",
+            "reasoning": "Using the default reflection search query because parsing failed"
         }

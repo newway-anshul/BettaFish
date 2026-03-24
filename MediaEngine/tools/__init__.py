@@ -1,6 +1,6 @@
 """
-工具调用模块
-提供外部工具接口，如多模态搜索等
+Tool invocation module
+Provides external tool interfaces such as multimodal search
 """
 
 from .search import (

@@ -1,6 +1,6 @@
 """
-工具函数模块
-提供文本处理、JSON解析等辅助功能
+Utility function module
+Provides helper utilities such as text processing and JSON parsing
 """
 
 from .text_processing import (
