@@ -2,99 +2,99 @@ from transformers import pipeline
 import re
 
 def preprocess_text(text):
-    """简单的文本预处理"""
-    text = re.sub(r"\{%.+?%\}", " ", text)           # 去除 {%xxx%}
-    text = re.sub(r"@.+?( |$)", " ", text)           # 去除 @xxx
-    text = re.sub(r"【.+?】", " ", text)              # 去除 【xx】
-    text = re.sub(r"\u200b", " ", text)              # 去除特殊字符
-    # 删除表情符号
+    """Simple text preprocessing"""
+    text = re.sub(r"\{%.+?%\}", " ", text)           # Remove {%xxx%}
+    text = re.sub(r"@.+?( |$)", " ", text)           # Remove @xxx
+    text = re.sub(r"【.+?】", " ", text)              # Remove 【xx】
+    text = re.sub(r"\u200b", " ", text)              # Remove special characters
+    # Remove emoji characters
     text = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002600-\U000027BF\U0001f900-\U0001f9ff\U0001f018-\U0001f270\U0000231a-\U0000231b\U0000238d-\U0000238d\U000024c2-\U0001f251]+', '', text)
-    text = re.sub(r"\s+", " ", text)                 # 多个空格合并
+    text = re.sub(r"\s+", " ", text)                 # Merge multiple spaces
     return text.strip()
 
 def main():
-    print("正在加载微博情感分析模型...")
+    print("Loading Weibo sentiment analysis model...")
     
-    # 使用pipeline方式 - 更简单
+    # Use pipeline approach - simpler
     model_name = "wsqstar/GISchat-weibo-100k-fine-tuned-bert"
     local_model_path = "./model"
     
     try:
-        # 检查本地是否已有模型
+        # Check if model already exists locally
         import os
         if os.path.exists(local_model_path):
-            print("从本地加载模型...")
+            print("Loading model from local storage...")
             classifier = pipeline(
                 "text-classification", 
                 model=local_model_path,
                 return_all_scores=True
             )
         else:
-            print("首次使用，正在下载模型到本地...")
-            # 先下载模型
+            print("First time use, downloading model to local storage...")
+            # Download model first
             from transformers import AutoTokenizer, AutoModelForSequenceClassification
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             model = AutoModelForSequenceClassification.from_pretrained(model_name)
             
-            # 保存到本地
+            # Save to local storage
             tokenizer.save_pretrained(local_model_path)
             model.save_pretrained(local_model_path)
-            print(f"模型已保存到: {local_model_path}")
+            print(f"Model saved to: {local_model_path}")
             
-            # 使用本地模型创建pipeline
+            # Create pipeline using local model
             classifier = pipeline(
                 "text-classification", 
                 model=local_model_path,
                 return_all_scores=True
             )
-        print("模型加载成功!")
+        print("Model loaded successfully!")
         
     except Exception as e:
-        print(f"模型加载失败: {e}")
-        print("请检查网络连接")
+        print(f"Model loading failed: {e}")
+        print("Please check your network connection")
         return
     
-    print("\n============= 微博情感分析 (Pipeline版) =============")
-    print("输入微博内容进行分析 (输入 'q' 退出):")
+    print("\n============= Weibo Sentiment Analysis (Pipeline Version) =============")
+    print("Enter Weibo content for analysis (enter 'q' to quit):")
     
     while True:
-        text = input("\n请输入微博内容: ")
+        text = input("\nEnter Weibo content: ")
         if text.lower() == 'q':
             break
         
         if not text.strip():
-            print("输入不能为空，请重新输入")
+            print("Input cannot be empty, please try again")
             continue
         
         try:
-            # 预处理文本
+            # Preprocess text
             processed_text = preprocess_text(text)
             
-            # 预测
+            # Predict
             outputs = classifier(processed_text)
             
-            # 解析结果
+            # Parse results
             positive_score = None
             negative_score = None
             
             for output in outputs[0]:
-                if output['label'] == 'LABEL_1':  # 正面
+                if output['label'] == 'LABEL_1':  # Positive
                     positive_score = output['score']
-                elif output['label'] == 'LABEL_0':  # 负面
+                elif output['label'] == 'LABEL_0':  # Negative
                     negative_score = output['score']
             
-            # 确定预测结果
+            # Determine prediction result
             if positive_score > negative_score:
-                label = "正面情感"
+                label = "Positive Sentiment"
                 confidence = positive_score
             else:
-                label = "负面情感"
+                label = "Negative Sentiment"
                 confidence = negative_score
             
-            print(f"预测结果: {label} (置信度: {confidence:.4f})")
+            print(f"Prediction: {label} (Confidence: {confidence:.4f})")
             
         except Exception as e:
-            print(f"预测时发生错误: {e}")
+            print(f"Error during prediction: {e}")
             continue
 
 if __name__ == "__main__":

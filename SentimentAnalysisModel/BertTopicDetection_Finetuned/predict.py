@@ -5,7 +5,7 @@ import re
 import argparse
 from typing import Dict, Tuple, List
 
-# ========== 单卡锁定（在导入 torch/transformers 前执行） ==========
+# ========== Single-card lock (execute before importing torch/transformers) ==========
 def _extract_gpu_arg(argv, default: str = "0") -> str:
     for i, arg in enumerate(argv):
         if arg.startswith("--gpu="):
@@ -49,7 +49,7 @@ def ensure_base_model_local(model_name_or_path: str, local_model_root: str) -> T
         tokenizer = AutoTokenizer.from_pretrained(base_dir)
         return base_dir, tokenizer
 
-    # 本机缓存
+    # Local cache
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, local_files_only=True)
         base = AutoModel.from_pretrained(model_name_or_path, local_files_only=True)
@@ -60,7 +60,7 @@ def ensure_base_model_local(model_name_or_path: str, local_model_root: str) -> T
     except Exception:
         pass
 
-    # 远程下载
+    # Remote download
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     base = AutoModel.from_pretrained(model_name_or_path)
     os.makedirs(base_dir, exist_ok=True)
@@ -70,14 +70,14 @@ def ensure_base_model_local(model_name_or_path: str, local_model_root: str) -> T
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="使用本地/缓存/远程加载的中文 BERT 分类模型进行预测")
-    parser.add_argument("--model_root", type=str, default="./model", help="本地模型根目录")
-    parser.add_argument("--finetuned_subdir", type=str, default="bert-chinese-classifier", help="微调结果子目录")
-    parser.add_argument("--pretrained_name", type=str, default="google-bert/bert-base-chinese", help="预训练模型名称或路径")
-    parser.add_argument("--text", type=str, default=None, help="直接输入一条要预测的文本")
-    parser.add_argument("--interactive", action="store_true", help="进入交互式预测模式")
+    parser = argparse.ArgumentParser(description="Predict using Chinese BERT classification model loaded from local/cache/remote")
+    parser.add_argument("--model_root", type=str, default="./model", help="Local model root directory")
+    parser.add_argument("--finetuned_subdir", type=str, default="bert-chinese-classifier", help="Fine-tuned result subdirectory")
+    parser.add_argument("--pretrained_name", type=str, default="google-bert/bert-base-chinese", help="Pre-trained model name or path")
+    parser.add_argument("--text", type=str, default=None, help="Directly input text to predict")
+    parser.add_argument("--interactive", action="store_true", help="Enter interactive prediction mode")
     parser.add_argument("--max_length", type=int, default=128)
-    parser.add_argument("--gpu", type=str, default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"), help="指定单卡 GPU，如 0 或 1")
+    parser.add_argument("--gpu", type=str, default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"), help="Specify single GPU card, e.g., 0 or 1")
     return parser.parse_args()
 
 
@@ -85,7 +85,7 @@ def load_finetuned(model_root: str, subdir: str) -> Tuple[str, Dict[int, str]]:
     finetuned_path = os.path.join(model_root, subdir)
     if not os.path.isdir(finetuned_path):
         raise FileNotFoundError(
-            f"未找到微调模型目录: {finetuned_path}，请先运行训练脚本。"
+            f"Fine-tuned model directory not found: {finetuned_path}, please run training script first."
         )
     label_map_path = os.path.join(finetuned_path, "label_map.json")
     id2label = None
@@ -131,7 +131,7 @@ def main() -> None:
     model_root = args.model_root if os.path.isabs(args.model_root) else os.path.join(script_dir, args.model_root)
     os.makedirs(model_root, exist_ok=True)
 
-    # 确保基础模型在本地
+    # Ensure base model is local
     ensure_base_model_local(args.pretrained_name, model_root)
 
     finetuned_dir, _ = load_finetuned(model_root, args.finetuned_subdir)
@@ -143,17 +143,17 @@ def main() -> None:
 
     if args.text is not None:
         topk = predict_topk(model, tokenizer, device, args.text, args.max_length, top_k=3)
-        print("Top-3 预测:")
+        print("Top-3 predictions:")
         for rank, (label, conf) in enumerate(topk, 1):
             print(f"{rank}. {label} (p={conf:.4f})")
         return
 
-    # 默认进入交互模式（未显式指定 --text 且未显式关闭交互）
+    # Default to interactive mode (no explicit --text and no explicit close of interactive)
     if args.interactive or (args.text is None):
-        print("进入交互模式。输入 'q' 退出。")
+        print("Entering interactive mode. Input 'q' to exit.")
         while True:
             try:
-                text = input("请输入文本: ").strip()
+                text = input("Please input text: ").strip()
             except EOFError:
                 break
             if text.lower() == "q":
@@ -161,12 +161,12 @@ def main() -> None:
             if not text:
                 continue
             topk = predict_topk(model, tokenizer, device, text, args.max_length, top_k=3)
-            print("Top-3 预测:")
+            print("Top-3 predictions:")
             for rank, (label, conf) in enumerate(topk, 1):
                 print(f"{rank}. {label} (p={conf:.4f})")
         return
-    # 理论上不会到达这里
-    print("未提供输入。")
+    # Theoretically unreachable
+    print("No input provided.")
 
 
 if __name__ == "__main__":

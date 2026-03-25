@@ -4,17 +4,17 @@ import torch.nn as nn
 class AdapterLayer(nn.Module):
     def __init__(self, input_size, adapter_size):
         super(AdapterLayer, self).__init__()
-        # 第一个全连接层降维
+        # First fully connected layer for dimensionality reduction
         self.down_project = nn.Linear(input_size, adapter_size)
-        # ReLU激活函数
+        # ReLU activation function
         self.relu = nn.ReLU()
-        # 第二个全连接层升维
+        # Second fully connected layer for dimensionality expansion
         self.up_project = nn.Linear(adapter_size, input_size)
 
     def forward(self, x):
-        # 通过Adapter层的前向传播
+        # Forward pass through adapter layer
         down_projected = self.down_project(x)
         relu = self.relu(down_projected)
         up_projected = self.up_project(x)
-        # 将Adapter的输出与输入相加（残差连接）
+        # Add adapter output and input (residual connection)
         return x + up_projected
