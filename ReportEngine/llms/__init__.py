@@ -1,7 +1,7 @@
 """
-Report Engine LLM子模块。
+Report Engine LLM submodule.
 
-目前主要暴露 OpenAI 兼容的 `LLMClient` 封装。
+Currently, it mainly exposes the OpenAI-compatible `LLMClient` wrapper.
 """
 
 from .base import LLMClient
