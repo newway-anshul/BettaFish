@@ -1,8 +1,9 @@
 """
-Report Engine JSON契约（IR）Schema定义。
+Report Engine JSON contract (IR) Schema definitions.
 
-这里集中维护所有章节级别的Schema与可用于提示词的文本表示，
-确保章节生成、校验与渲染对同一个结构有统一认知。
+All chapter-level schemas and their prompt-ready text representations are
+maintained here, ensuring chapter generation, validation, and rendering
+share a unified understanding of the structure.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import Any, Dict, List
 
 IR_VERSION = "1.0"
 
-# ====== 基础常量 ======
+# ====== Base Constants ======
 ALLOWED_INLINE_MARKS: List[str] = [
     "bold",
     "italic",
@@ -53,7 +54,7 @@ ENGINE_AGENT_TITLES: Dict[str, str] = {
     "query": "Query Agent",
 }
 
-# ====== Schema定义 ======
+# ====== Schema Definitions ======
 inline_mark_schema: Dict[str, Any] = {
     "type": "object",
     "required": ["type"],
@@ -186,14 +187,14 @@ swot_item_schema: Dict[str, Any] = {
                 "evidence": {"type": "string"},
                 "impact": {
                     "type": "string",
-                    "enum": ["低", "中低", "中", "中高", "高", "极高"],
-                    "description": "影响评级，只允许填写：低/中低/中/中高/高/极高",
+                    "enum": ["low", "medium-low", "medium", "medium-high", "high", "extreme"],
+                    "description": "Impact rating; allowed values: low / medium-low / medium / medium-high / high / extreme",
                 },
                 # "score": {
                 #     "type": "number",
                 #     "minimum": 0,
                 #     "maximum": 10,
-                #     "description": "评分，只允许0-10的数字",
+                #     "description": "Score; only numbers 0-10 are allowed",
                 # },
                 "priority": {"type": ["string", "number"]},
             },
@@ -253,8 +254,8 @@ pest_item_schema: Dict[str, Any] = {
                 "evidence": {"type": "string"},
                 "trend": {
                     "type": "string",
-                    "enum": ["正面利好", "负面影响", "中性", "不确定", "持续观察"],
-                    "description": "趋势/影响评估，只允许填写：正面利好/负面影响/中性/不确定/持续观察",
+                    "enum": ["positive", "negative", "neutral", "uncertain", "watch"],
+                    "description": "Trend/impact assessment; allowed values: positive / negative / neutral / uncertain / watch",
                 },
                 "impact": {"type": ["string", "number"]},
             },
@@ -274,22 +275,22 @@ pest_block: Dict[str, Any] = {
         "political": {
             "type": "array",
             "items": {"$ref": "#/definitions/pestItem"},
-            "description": "政治因素：政策法规、政府态度、政治稳定性等",
+            "description": "Political factors: policies, regulations, government stance, political stability, etc.",
         },
         "economic": {
             "type": "array",
             "items": {"$ref": "#/definitions/pestItem"},
-            "description": "经济因素：经济周期、利率汇率、消费水平等",
+            "description": "Economic factors: economic cycles, interest/exchange rates, consumption levels, etc.",
         },
         "social": {
             "type": "array",
             "items": {"$ref": "#/definitions/pestItem"},
-            "description": "社会因素：人口结构、文化趋势、生活方式等",
+            "description": "Social factors: demographic structure, cultural trends, lifestyle changes, etc.",
         },
         "technological": {
             "type": "array",
             "items": {"$ref": "#/definitions/pestItem"},
-            "description": "技术因素：技术创新、研发投入、技术普及等",
+            "description": "Technological factors: innovation, R&D investment, technology adoption, etc.",
         },
     },
     "required": ["type"],
