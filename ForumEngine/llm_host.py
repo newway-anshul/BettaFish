@@ -81,7 +81,7 @@ class ForumHost:
             
             if response["success"]:
                 speech = response["content"]
-                # 清理和格式化发言
+                # Clean and format the speech
                 speech = self._format_host_speech(speech)
                 return speech
             else:
@@ -107,18 +107,18 @@ class ForumHost:
             if not line.strip():
                 continue
             
-            # 解析时间戳和发言者
+            # Parse the timestamp and speaker
             match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*\[(\w+)\]\s*(.+)', line)
             if match:
                 timestamp, speaker, content = match.groups()
                 
-                # 跳过系统消息和HOST自己的发言
+                # Skip system messages and the host's own speech
                 if speaker in ['SYSTEM', 'HOST']:
                     continue
                 
-                # 记录agent发言
+                # Record agent speech
                 if speaker in ['INSIGHT', 'MEDIA', 'QUERY']:
-                    # 处理转义的换行符
+                    # Normalize escaped newline characters
                     content = content.replace('\\n', '\n')
                     
                     parsed['agent_speeches'].append({

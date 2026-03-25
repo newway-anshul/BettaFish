@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-生成覆盖全部允许block类型的演示 IR，用于验证 HTML / PDF / Markdown 渲染。
+Generate a demo IR that covers all allowed block types for HTML / PDF / Markdown rendering tests.
 
-执行后会在 `final_reports/ir` 写入一份带时间戳的 IR，
-并分别在 `final_reports/html`、`final_reports/pdf` 与 `final_reports/md`
-输出对应的渲染文件。
+After execution, the script writes a timestamped IR file to `final_reports/ir`,
+and outputs rendered files to `final_reports/html`, `final_reports/pdf`, and `final_reports/md`.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# 允许直接以脚本形式运行
+# Allow direct script execution
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -27,29 +26,29 @@ from ReportEngine.utils.config import settings
 
 
 def build_inline_marks_demo() -> dict:
-    """生成覆盖全部内联标记的 paragraph block。"""
+    """Build a paragraph block that covers all inline marks."""
     return {
         "type": "paragraph",
         "inlines": [
-            {"text": "这一段覆盖全部内联标记："},
-            {"text": "粗体", "marks": [{"type": "bold"}]},
-            {"text": " / 斜体", "marks": [{"type": "italic"}]},
-            {"text": " / 下划线", "marks": [{"type": "underline"}]},
-            {"text": " / 删除线", "marks": [{"type": "strike"}]},
-            {"text": " / 代码", "marks": [{"type": "code"}]},
+            {"text": "This paragraph demonstrates all inline marks:"},
+            {"text": "Bold", "marks": [{"type": "bold"}]},
+            {"text": " / Italic", "marks": [{"type": "italic"}]},
+            {"text": " / Underline", "marks": [{"type": "underline"}]},
+            {"text": " / Strike", "marks": [{"type": "strike"}]},
+            {"text": " / Code", "marks": [{"type": "code"}]},
             {
-                "text": " / 链接",
+                "text": " / Link",
                 "marks": [
                     {
                         "type": "link",
                         "href": "https://example.com/demo",
-                        "title": "示例链接",
+                        "title": "Example link",
                     }
                 ],
             },
-            {"text": " / 颜色", "marks": [{"type": "color", "value": "#c0392b"}]},
+            {"text": " / Color", "marks": [{"type": "color", "value": "#c0392b"}]},
             {
-                "text": " / 字体",
+                "text": " / Font",
                 "marks": [
                     {
                         "type": "font",
@@ -59,17 +58,17 @@ def build_inline_marks_demo() -> dict:
                     }
                 ],
             },
-            {"text": " / 高亮", "marks": [{"type": "highlight"}]},
-            {"text": " / 下标", "marks": [{"type": "subscript"}]},
-            {"text": " / 上标", "marks": [{"type": "superscript"}]},
-            {"text": " / 行内公式", "marks": [{"type": "math", "value": "E=mc^2"}]},
-            {"text": "。"},
+            {"text": " / Highlight", "marks": [{"type": "highlight"}]},
+            {"text": " / Subscript", "marks": [{"type": "subscript"}]},
+            {"text": " / Superscript", "marks": [{"type": "superscript"}]},
+            {"text": " / Inline math", "marks": [{"type": "math", "value": "E=mc^2"}]},
+            {"text": "."},
         ],
     }
 
 
 def build_widget_block() -> dict:
-    """构造一个合法的 Chart.js widget block。"""
+    """Build a valid Chart.js widget block."""
     return {
         "type": "widget",
         "widgetId": "demo-volume-trend",
@@ -79,14 +78,14 @@ def build_widget_block() -> dict:
             "options": {
                 "responsive": True,
                 "plugins": {"legend": {"position": "bottom"}},
-                "scales": {"y": {"title": {"display": True, "text": "提及量"}}},
+                "scales": {"y": {"title": {"display": True, "text": "Mentions"}}},
             },
         },
         "data": {
             "labels": ["T0", "T0+6h", "T0+12h", "T0+18h", "T0+24h"],
             "datasets": [
                 {
-                    "label": "主流媒体",
+                    "label": "Mainstream media",
                     "data": [12, 18, 23, 30, 26],
                     "borderColor": "#2980b9",
                     "backgroundColor": "rgba(41,128,185,0.18)",
@@ -94,7 +93,7 @@ def build_widget_block() -> dict:
                     "fill": False,
                 },
                 {
-                    "label": "社交平台",
+                    "label": "Social platforms",
                     "data": [8, 10, 15, 28, 40],
                     "borderColor": "#c0392b",
                     "backgroundColor": "rgba(192,57,43,0.2)",
@@ -107,7 +106,7 @@ def build_widget_block() -> dict:
 
 
 def build_chapters() -> list[dict]:
-    """构造覆盖所有 block 类型的章节列表。"""
+    """Build chapter list that covers all block types."""
     inline_demo = build_inline_marks_demo()
 
     bullet_list = {
@@ -117,13 +116,13 @@ def build_chapters() -> list[dict]:
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "社交媒体热度在 48 小时内翻倍"}],
+                    "inlines": [{"text": "Social media heat doubled within 48 hours"}],
                 }
             ],
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "主流媒体报道集中在早间时段"}],
+                    "inlines": [{"text": "Mainstream media coverage was concentrated in the morning"}],
                 },
                 {
                     "type": "list",
@@ -132,13 +131,13 @@ def build_chapters() -> list[dict]:
                         [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "07:00-09:00：首轮报道"}],
+                                "inlines": [{"text": "07:00-09:00: First wave of reports"}],
                             }
                         ],
                         [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "10:00-12:00：评论扩散"}],
+                                "inlines": [{"text": "10:00-12:00: Commentary spread"}],
                             }
                         ],
                     ],
@@ -147,7 +146,7 @@ def build_chapters() -> list[dict]:
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "地方政务号开始回应并同步线下通稿"}],
+                    "inlines": [{"text": "Local government accounts started responding and synced offline releases"}],
                 }
             ],
         ],
@@ -160,19 +159,19 @@ def build_chapters() -> list[dict]:
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "跟踪权威辟谣素材是否上线"}],
+                    "inlines": [{"text": "Track whether authoritative fact-check materials are published"}],
                 }
             ],
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "监测新增关联关键词与长尾问题"}],
+                    "inlines": [{"text": "Monitor emerging related keywords and long-tail questions"}],
                 }
             ],
             [
                 {
                     "type": "paragraph",
-                    "inlines": [{"text": "准备 FAQ 供客服统一答复"}],
+                    "inlines": [{"text": "Prepare FAQ for unified customer support responses"}],
                 }
             ],
         ],
@@ -180,7 +179,7 @@ def build_chapters() -> list[dict]:
 
     table_block = {
         "type": "table",
-        "caption": "核心信源与传播路径",
+        "caption": "Core sources and dissemination paths",
         "zebra": True,
         "colgroup": [{"width": "22%"}, {"width": "38%"}, {"width": "40%"}],
         "rows": [
@@ -191,7 +190,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "时间节点", "marks": [{"type": "bold"}]}],
+                                "inlines": [{"text": "Timepoint", "marks": [{"type": "bold"}]}],
                             }
                         ],
                     },
@@ -200,7 +199,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "事件内容", "marks": [{"type": "bold"}]}],
+                                "inlines": [{"text": "Event", "marks": [{"type": "bold"}]}],
                             }
                         ],
                     },
@@ -209,7 +208,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "主要渠道", "marks": [{"type": "bold"}]}],
+                                "inlines": [{"text": "Main channels", "marks": [{"type": "bold"}]}],
                             }
                         ],
                     },
@@ -222,7 +221,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "线下冲突视频首次上传"}],
+                                "inlines": [{"text": "Offline conflict video was first uploaded"}],
                             }
                         ]
                     },
@@ -230,7 +229,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "短视频平台 / 私聊转发"}],
+                                "inlines": [{"text": "Short-video platforms / private chat forwarding"}],
                             }
                         ]
                     },
@@ -243,7 +242,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "登上热搜，出现二次剪辑"}],
+                                "inlines": [{"text": "Reached trending lists, with secondary edits appearing"}],
                             }
                         ]
                     },
@@ -251,7 +250,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "微博 / 朋友圈"}],
+                                "inlines": [{"text": "Weibo / Moments"}],
                             }
                         ]
                     },
@@ -264,7 +263,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "官方回应并发布事实澄清"}],
+                                "inlines": [{"text": "Official response issued with factual clarification"}],
                             }
                         ]
                     },
@@ -272,7 +271,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "政务号 / 新闻客户端"}],
+                                "inlines": [{"text": "Government accounts / news apps"}],
                             }
                         ]
                     },
@@ -285,7 +284,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "专家解读，舆论重心转向责任归属"}],
+                                "inlines": [{"text": "Expert commentary shifted focus toward responsibility attribution"}],
                             }
                         ]
                     },
@@ -293,7 +292,7 @@ def build_chapters() -> list[dict]:
                         "blocks": [
                             {
                                 "type": "paragraph",
-                                "inlines": [{"text": "视频号直播 / 行业社群"}],
+                                "inlines": [{"text": "Live video channels / industry communities"}],
                             }
                         ]
                     },
@@ -308,11 +307,11 @@ def build_chapters() -> list[dict]:
         "blocks": [
             {
                 "type": "paragraph",
-                "inlines": [{"text": "“公众最关心的信息是真相与责任边界。”"}],
+                "inlines": [{"text": "\"The public cares most about truth and the boundaries of responsibility.\""}],
             },
             {
                 "type": "paragraph",
-                "inlines": [{"text": "—— 模拟引用，验证引用块样式"}],
+                "inlines": [{"text": "- Simulated quote to validate blockquote styling"}],
             },
         ],
     }
@@ -326,7 +325,7 @@ def build_chapters() -> list[dict]:
                 "type": "paragraph",
                 "inlines": [
                     {
-                        "text": "模型认为 24 小时内保持回应频次，可避免信息真空。",
+                        "text": "The model suggests maintaining response cadence within 24 hours to avoid an information vacuum.",
                         "marks": [{"type": "bold"}],
                     }
                 ],
@@ -334,7 +333,7 @@ def build_chapters() -> list[dict]:
             {
                 "type": "paragraph",
                 "inlines": [
-                    {"text": "建议同时准备简短 FAQ，便于多渠道统一口径。"}
+                    {"text": "It also recommends preparing a short FAQ for consistent cross-channel messaging."}
                 ],
             },
         ],
@@ -342,86 +341,86 @@ def build_chapters() -> list[dict]:
 
     swot_block = {
         "type": "swotTable",
-        "title": "舆论场 SWOT 速览",
-        "summary": "覆盖当前情绪分布、潜在风险与机会。",
+        "title": "SWOT Snapshot of the Public Discourse",
+        "summary": "Covers current sentiment distribution, potential risks, and opportunities.",
         "strengths": [
-            {"title": "官方快速响应", "detail": "首条澄清视频 3 小时内上线"},
-            {"title": "同城媒体配合", "impact": "高", "score": 8},
+            {"title": "Fast official response", "detail": "First clarification video went live within 3 hours"},
+            {"title": "Local media coordination", "impact": "High", "score": 8},
         ],
         "weaknesses": [
-            {"title": "早期谣言存量大", "detail": "相关转发仍占 30%"},
-            "外部专家尚未统一口径",
+            {"title": "Large stock of early rumors", "detail": "Related reposts still account for 30%"},
+            "External experts have not aligned on messaging yet",
         ],
         "opportunities": [
             {
-                "title": "社区共建讨论",
-                "detail": "自发组织“辟谣志愿者”话题，情绪正向",
+                "title": "Community co-creation discussions",
+                "detail": "Spontaneous \"fact-check volunteer\" topics emerged with positive sentiment",
             },
-            {"title": "公益合作窗口", "impact": "中"},
+            {"title": "Public-welfare collaboration window", "impact": "Medium"},
         ],
         "threats": [
-            {"title": "跨平台剪辑继续发酵", "impact": "高", "score": 9},
-            {"title": "个别自媒体煽动情绪", "evidence": "存在地域标签化倾向"},
+            {"title": "Cross-platform edited clips continue to spread", "impact": "High", "score": 9},
+            {"title": "Some self-media accounts inflame emotions", "evidence": "Regional labeling tendencies observed"},
         ],
     }
 
     pest_block = {
         "type": "pestTable",
-        "title": "宏观环境脉冲扫描（PEST）",
-        "summary": "模拟四大维度的外部约束与机会，验证 pestTable 的渲染样式。",
+        "title": "Macro Environment Pulse Scan (PEST)",
+        "summary": "Simulates external constraints and opportunities across four dimensions to validate pestTable rendering.",
         "political": [
             {
-                "title": "地方条例征求意见",
-                "detail": "短视频发布需实名溯源，平台合规沟通窗口期开启",
-                "trend": "正面利好",
+                "title": "Local regulation consultation",
+                "detail": "Short-video posting requires real-name traceability, opening a platform compliance communication window",
+                "trend": "Positive",
                 "impact": 7,
             },
             {
-                "title": "监管关注情绪煽动",
-                "detail": "对夸大矛盾的账号重点巡查，舆论阈值下调",
-                "trend": "持续观察",
+                "title": "Regulatory focus on emotional manipulation",
+                "detail": "Accounts exaggerating conflicts are under prioritized inspection, lowering discourse tolerance thresholds",
+                "trend": "Watch",
                 "impact": 6,
             },
         ],
         "economic": [
             {
-                "title": "周边商户营收波动",
-                "detail": "客流短期下滑 12%，但直播带货订单上升",
-                "trend": "中性",
+                "title": "Revenue fluctuations for nearby merchants",
+                "detail": "Foot traffic dropped 12% short-term, but livestream commerce orders increased",
+                "trend": "Neutral",
                 "impact": 5,
             },
             {
-                "title": "品牌赞助谨慎",
-                "detail": "赞助延期观察声誉风险，对官宣节奏有压力",
-                "trend": "不确定",
+                "title": "Cautious brand sponsorship",
+                "detail": "Sponsorship delays due to reputation risk observation pressure official announcement cadence",
+                "trend": "Uncertain",
                 "impact": 4,
             },
         ],
         "social": [
             {
-                "title": "核心群体情绪分化",
-                "detail": "本地居民关注安全，外地游客关注体验与退款",
-                "trend": "负面影响",
+                "title": "Sentiment divergence among core groups",
+                "detail": "Local residents focus on safety, while non-local visitors focus on experience and refunds",
+                "trend": "Negative",
                 "impact": 8,
             },
             {
-                "title": "高校社群自发求证",
-                "detail": "校媒与学生会组织“以图搜图”科普贴，情绪趋稳",
-                "trend": "正面利好",
+                "title": "University communities self-verify information",
+                "detail": "Campus media and student unions organized image-verification educational posts, stabilizing sentiment",
+                "trend": "Positive",
                 "impact": 6,
             },
         ],
         "technological": [
             {
-                "title": "AI 生成内容被混入",
-                "detail": "局部画面被放大后再传播，需水印溯源工具辅助鉴伪",
-                "trend": "负面影响",
+                "title": "AI-generated content mixed in",
+                "detail": "Partial frames are enlarged and re-shared, requiring watermark traceability tools for verification",
+                "trend": "Negative",
                 "impact": 7,
             },
             {
-                "title": "多模态检索上线",
-                "detail": "平台试行“视频反诈”模型，自动提示剪辑痕迹",
-                "trend": "正面利好",
+                "title": "Multimodal retrieval launched",
+                "detail": "Platforms pilot a video anti-fraud model that auto-flags editing traces",
+                "trend": "Positive",
                 "impact": 5,
             },
         ],
@@ -430,12 +429,12 @@ def build_chapters() -> list[dict]:
     callout_block = {
         "type": "callout",
         "tone": "warning",
-        "title": "排版边界提示",
+        "title": "Layout boundary note",
         "blocks": [
             {
                 "type": "paragraph",
                 "inlines": [
-                    {"text": "callout 内部仅放轻量内容，超出部分会自动溢出到外层。"}
+                    {"text": "Keep only lightweight content inside callouts; overflow will automatically move to outer layout."}
                 ],
             },
             {
@@ -445,13 +444,13 @@ def build_chapters() -> list[dict]:
                     [
                         {
                             "type": "paragraph",
-                            "inlines": [{"text": "支持嵌套列表 / 表格 / 数学公式"}],
+                            "inlines": [{"text": "Supports nested lists / tables / math formulas"}],
                         }
                     ],
                     [
                         {
                             "type": "paragraph",
-                            "inlines": [{"text": "可在这里放置提醒或操作步骤"}],
+                            "inlines": [{"text": "Use this area for reminders or operational steps"}],
                         }
                     ],
                 ],
@@ -462,8 +461,8 @@ def build_chapters() -> list[dict]:
     code_block = {
         "type": "code",
         "lang": "json",
-        "caption": "演示代码块",
-        "content": '{\n  "event": "热点示例",\n  "topic": "公共事件",\n  "status": "monitoring"\n}',
+        "caption": "Demo code block",
+        "content": '{\n  "event": "Hot-topic example",\n  "topic": "Public event",\n  "status": "monitoring"\n}',
     }
 
     math_block = {
@@ -476,11 +475,11 @@ def build_chapters() -> list[dict]:
         "type": "figure",
         "img": {
             "src": "https://dummyimage.com/600x320/eeeeee/333333&text=Placeholder",
-            "alt": "占位示意图",
+            "alt": "Placeholder illustration",
             "width": 600,
             "height": 320,
         },
-        "caption": "图像外链被替换为友好提示，可验证 figure 占位效果。",
+        "caption": "External image links are replaced with a friendly notice to verify figure placeholder behavior.",
         "responsive": True,
     }
 
@@ -496,16 +495,16 @@ def build_chapters() -> list[dict]:
                 "plugins": {"legend": {"position": "bottom"}},
                 "scales": {
                     "x": {"stacked": True},
-                    "y": {"stacked": True, "title": {"display": True, "text": "信息量"}},
+                    "y": {"stacked": True, "title": {"display": True, "text": "Information volume"}},
                 },
             },
         },
         "data": {
-            "labels": ["周一", "周二", "周三", "周四", "周五"],
+            "labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
             "datasets": [
-                {"label": "正向", "data": [18, 22, 24, 19, 16], "backgroundColor": "#27ae60"},
-                {"label": "中性", "data": [22, 20, 18, 21, 23], "backgroundColor": "#f39c12"},
-                {"label": "负向", "data": [12, 14, 10, 9, 11], "backgroundColor": "#c0392b"},
+                {"label": "Positive", "data": [18, 22, 24, 19, 16], "backgroundColor": "#27ae60"},
+                {"label": "Neutral", "data": [22, 20, 18, 21, 23], "backgroundColor": "#f39c12"},
+                {"label": "Negative", "data": [12, 14, 10, 9, 11], "backgroundColor": "#c0392b"},
             ],
         },
     }
@@ -514,19 +513,19 @@ def build_chapters() -> list[dict]:
         "widgetId": "demo-horizontal-voice",
         "widgetType": "chart.js/bar",
         "props": {
-            # 通过 indexAxis 切换横向柱状图
+            # Switch to a horizontal bar chart via indexAxis
             "type": "bar",
             "options": {
                 "indexAxis": "y",
                 "plugins": {"legend": {"position": "right"}},
-                "scales": {"x": {"title": {"display": True, "text": "提及量(万)"}}},
+                "scales": {"x": {"title": {"display": True, "text": "Mentions (10k)"}}},
             },
         },
         "data": {
-            "labels": ["微博", "短视频", "社区论坛", "新闻客户端"],
+            "labels": ["Weibo", "Short video", "Community forums", "News apps"],
             "datasets": [
                 {
-                    "label": "声量对比",
+                    "label": "Volume comparison",
                     "data": [42, 58, 27, 36],
                     "backgroundColor": ["#2ecc71", "#3498db", "#9b59b6", "#f39c12"],
                 }
@@ -542,10 +541,10 @@ def build_chapters() -> list[dict]:
             "options": {"plugins": {"legend": {"position": "bottom"}}},
         },
         "data": {
-            "labels": ["支持", "中立", "质疑"],
+            "labels": ["Support", "Neutral", "Skeptical"],
             "datasets": [
                 {
-                    "label": "立场分布",
+                    "label": "Stance distribution",
                     "data": [36, 28, 21],
                     "backgroundColor": ["#27ae60", "#f1c40f", "#c0392b"],
                 }
@@ -561,10 +560,10 @@ def build_chapters() -> list[dict]:
             "options": {"plugins": {"legend": {"position": "right"}, "tooltip": {"enabled": True}}},
         },
         "data": {
-            "labels": ["政策", "经济", "社会", "技术"],
+            "labels": ["Policy", "Economy", "Society", "Technology"],
             "datasets": [
                 {
-                    "label": "关注度占比",
+                    "label": "Attention share",
                     "data": [24, 30, 28, 18],
                     "backgroundColor": ["#8e44ad", "#16a085", "#e67e22", "#2980b9"],
                     "hoverOffset": 6,
@@ -584,17 +583,17 @@ def build_chapters() -> list[dict]:
             },
         },
         "data": {
-            "labels": ["透明度", "响应速度", "一致性", "互动度", "信息量"],
+            "labels": ["Transparency", "Response speed", "Consistency", "Engagement", "Information volume"],
             "datasets": [
                 {
-                    "label": "官方渠道",
+                    "label": "Official channels",
                     "data": [78, 88, 82, 66, 91],
                     "backgroundColor": "rgba(46,204,113,0.15)",
                     "borderColor": "#2ecc71",
                     "pointBackgroundColor": "#27ae60",
                 },
                 {
-                    "label": "民间讨论",
+                    "label": "Public discussion",
                     "data": [64, 72, 58, 74, 63],
                     "backgroundColor": "rgba(52,152,219,0.12)",
                     "borderColor": "#3498db",
@@ -609,10 +608,10 @@ def build_chapters() -> list[dict]:
         "widgetType": "chart.js/polarArea",
         "props": {"type": "polarArea"},
         "data": {
-            "labels": ["短视频", "微博", "社区论坛", "新闻客户端", "线下反馈"],
+            "labels": ["Short video", "Weibo", "Community forums", "News apps", "Offline feedback"],
             "datasets": [
                 {
-                    "label": "渠道渗透度",
+                    "label": "Channel penetration",
                     "data": [62, 54, 38, 45, 28],
                     "backgroundColor": [
                         "rgba(231,76,60,0.65)",
@@ -634,15 +633,15 @@ def build_chapters() -> list[dict]:
             "options": {
                 "plugins": {"legend": {"position": "bottom"}},
                 "scales": {
-                    "x": {"title": {"display": True, "text": "情绪极性"}, "min": -1, "max": 1},
-                    "y": {"title": {"display": True, "text": "互动量"}, "beginAtZero": True},
+                    "x": {"title": {"display": True, "text": "Sentiment polarity"}, "min": -1, "max": 1},
+                    "y": {"title": {"display": True, "text": "Engagement"}, "beginAtZero": True},
                 },
             },
         },
         "data": {
             "datasets": [
                 {
-                    "label": "帖子散点",
+                    "label": "Post scatter",
                     "data": [
                         {"x": -0.65, "y": 120},
                         {"x": -0.25, "y": 190},
@@ -664,15 +663,15 @@ def build_chapters() -> list[dict]:
             "options": {
                 "plugins": {"legend": {"position": "bottom"}},
                 "scales": {
-                    "x": {"title": {"display": True, "text": "曝光量 (万)"}, "beginAtZero": True},
-                    "y": {"title": {"display": True, "text": "情绪强度"}, "min": -100, "max": 100},
+                    "x": {"title": {"display": True, "text": "Exposure (10k)"}, "beginAtZero": True},
+                    "y": {"title": {"display": True, "text": "Sentiment intensity"}, "min": -100, "max": 100},
                 },
             },
         },
         "data": {
             "datasets": [
                 {
-                    "label": "渠道分布",
+                    "label": "Channel distribution",
                     "data": [
                         {"x": 8, "y": 35, "r": 12},
                         {"x": 12, "y": -28, "r": 10},
@@ -689,16 +688,16 @@ def build_chapters() -> list[dict]:
 
     chapter_1 = {
         "chapterId": "S1",
-        "title": "封面与目录",
+        "title": "Cover and table of contents",
         "anchor": "overview",
         "order": 10,
         "blocks": [
-            {"type": "heading", "level": 2, "text": "一、封面与目录", "anchor": "overview"},
+            {"type": "heading", "level": 2, "text": "I. Cover and table of contents", "anchor": "overview"},
             {
                 "type": "paragraph",
                 "inlines": [
                     {
-                        "text": "模拟社会公共热点事件的摘要，便于快速确认排版与字体效果。",
+                        "text": "A simulated summary of a social public hotspot event for quickly checking layout and typography effects.",
                     }
                 ],
             },
@@ -706,10 +705,10 @@ def build_chapters() -> list[dict]:
             {
                 "type": "kpiGrid",
                 "items": [
-                    {"label": "24h提及量", "value": "98K", "delta": "+41%", "deltaTone": "up"},
-                    {"label": "正向占比", "value": "32%", "delta": "+5pp", "deltaTone": "up"},
-                    {"label": "负向占比", "value": "18%", "delta": "-3pp", "deltaTone": "down"},
-                    {"label": "高频渠道", "value": "短视频 / 微博"},
+                    {"label": "24h mentions", "value": "98K", "delta": "+41%", "deltaTone": "up"},
+                    {"label": "Positive share", "value": "32%", "delta": "+5pp", "deltaTone": "up"},
+                    {"label": "Negative share", "value": "18%", "delta": "-3pp", "deltaTone": "down"},
+                    {"label": "Top channels", "value": "Short video / Weibo"},
                 ],
                 "cols": 4,
             },
@@ -720,28 +719,28 @@ def build_chapters() -> list[dict]:
 
     chapter_2 = {
         "chapterId": "S2",
-        "title": "块类型演示",
+        "title": "Block type showcase",
         "anchor": "blocks-showcase",
         "order": 20,
         "blocks": [
             {
                 "type": "heading",
                 "level": 2,
-                "text": "二、块类型演示",
+                "text": "II. Block type showcase",
                 "anchor": "blocks-showcase",
             },
             {
                 "type": "paragraph",
                 "inlines": [
                     {
-                        "text": "以下内容逐一覆盖 paragraph/list/table/swot/pest/widget 等全部块类型。",
+                        "text": "The following content covers all block types one by one, including paragraph/list/table/swot/pest/widget.",
                     }
                 ],
             },
             {
                 "type": "heading",
                 "level": 3,
-                "text": "2.1 列表与表格",
+                "text": "2.1 Lists and tables",
                 "anchor": "lists-and-tables",
             },
             bullet_list,
@@ -750,14 +749,14 @@ def build_chapters() -> list[dict]:
             {
                 "type": "heading",
                 "level": 3,
-                "text": "2.2 图表组件演示",
+                "text": "2.2 Chart component showcase",
                 "anchor": "charts-demo",
             },
             {
                 "type": "paragraph",
                 "inlines": [
                     {
-                        "text": "折线 / 柱状（含横向、堆叠）/ 饼图 / 圆环 / 雷达 / 极区 / 散点 / 气泡等多类型图表，用于验证 Chart.js 兼容性。",
+                        "text": "Line / bar (including horizontal and stacked) / pie / doughnut / radar / polar / scatter / bubble charts validate Chart.js compatibility.",
                     }
                 ],
             },
@@ -773,7 +772,7 @@ def build_chapters() -> list[dict]:
             {
                 "type": "heading",
                 "level": 3,
-                "text": "2.3 高阶块与富媒体",
+                "text": "2.3 Advanced blocks and rich media",
                 "anchor": "advanced-blocks",
             },
             blockquote_block,
@@ -793,10 +792,10 @@ def build_chapters() -> list[dict]:
                 "align": "justify",
                 "inlines": [
                     {
-                        "text": "本章节的 inline math 兜底验证：",
+                        "text": "Inline math fallback validation for this chapter:",
                     },
                     {"text": "p(t)=p_0 e^{\\lambda t}", "marks": [{"type": "math"}]},
-                    {"text": "；以上覆盖所有允许块及标记。"},
+                    {"text": "; all allowed blocks and marks are covered above."},
                 ],
             },
         ],
@@ -806,16 +805,16 @@ def build_chapters() -> list[dict]:
 
 
 def validate_chapters(chapters: list[dict]) -> None:
-    """使用 IRValidator 校验章节结构，发现错误时抛出异常。"""
+    """Validate chapter structure with IRValidator and raise on error."""
     validator = IRValidator()
     for chapter in chapters:
         ok, errors = validator.validate_chapter(chapter)
         if not ok:
-            raise ValueError(f"{chapter.get('chapterId', 'unknown')} 校验失败: {errors}")
+            raise ValueError(f"{chapter.get('chapterId', 'unknown')} validation failed: {errors}")
 
 
 def render_and_save(document_ir: dict, timestamp: str) -> tuple[Path, Path, Path, Path]:
-    """将 IR 保存为 JSON，并渲染 HTML / PDF / Markdown，返回四个路径。"""
+    """Save IR as JSON, render HTML / PDF / Markdown, and return four output paths."""
     ir_dir = Path(settings.DOCUMENT_IR_OUTPUT_DIR)
     html_dir = Path(settings.OUTPUT_DIR) / "html"
     pdf_dir = Path(settings.OUTPUT_DIR) / "pdf"
@@ -849,18 +848,18 @@ def main() -> int:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_id = f"all-blocks-demo-{timestamp}"
     metadata = {
-        "title": "社会公共热点事件渲染测试",
-        "subtitle": "覆盖全部 IR 块类型的示例数据，含多种图表与 PEST 演示",
-        "query": "公共事件渲染能力自检 / Chart & PEST",
-        "toc": {"title": "目录", "depth": 3},
+        "title": "Social Public Hotspot Rendering Test",
+        "subtitle": "Sample data covering all IR block types, including multiple charts and PEST demonstration",
+        "query": "Public-event rendering self-check / Chart & PEST",
+        "toc": {"title": "Contents", "depth": 3},
         "hero": {
-            "summary": "用于验证 Report Engine 在 HTML / PDF 渲染时对各类区块、Chart.js 组件与 PEST 模块的兼容性。",
+            "summary": "Used to validate compatibility of Report Engine with various blocks, Chart.js components, and PEST modules in HTML / PDF rendering.",
             "kpis": [
-                {"label": "示例块数量", "value": "20+", "delta": "含 PEST", "tone": "up"},
-                {"label": "图表数", "value": "7", "delta": "新增多类型", "tone": "neutral"},
+                {"label": "Demo block count", "value": "20+", "delta": "Includes PEST", "tone": "up"},
+                {"label": "Chart count", "value": "7", "delta": "More chart types", "tone": "neutral"},
             ],
-            "highlights": ["覆盖全部 block", "含行内/块级公式", "Chart.js 多类型", "PEST + SWOT"],
-            "actions": ["重新生成", "导出 PDF"],
+            "highlights": ["All blocks covered", "Inline/block math included", "Multiple Chart.js types", "PEST + SWOT"],
+            "actions": ["Regenerate", "Export PDF"],
         },
     }
 
@@ -872,7 +871,7 @@ def main() -> int:
 
     ir_path, html_path, pdf_path, md_path = render_and_save(document_ir, timestamp)
 
-    print("✅ 演示 IR 生成完成")
+    print("✅ Demo IR generation completed")
     print(f"IR:   {ir_path}")
     print(f"HTML: {html_path}")
     print(f"PDF:  {pdf_path}")

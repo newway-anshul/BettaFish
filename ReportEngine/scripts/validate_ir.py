@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-IR 文档验证工具。
+IR document validation tool.
 
-命令行工具，用于：
-- 扫描指定 JSON 文件中的所有图表和表格
-- 报告结构问题和数据缺失
-- 支持自动修复常见问题
-- 支持批量处理
+Command-line utility for:
+- Scanning all charts and tables in target JSON files
+- Reporting structural issues and missing data
+- Optionally auto-fixing common issues
+- Supporting batch processing
 
-使用方法:
+Usage:
     python -m ReportEngine.scripts.validate_ir chapter-030-section-3-0.json
     python -m ReportEngine.scripts.validate_ir *.json --fix
     python -m ReportEngine.scripts.validate_ir ./output/ --recursive --fix --verbose
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
-# 添加项目根目录到路径
+# Add project root to sys.path
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -44,7 +44,7 @@ from ReportEngine.utils.table_validator import (
 
 @dataclass
 class BlockIssue:
-    """单个 block 的问题"""
+    """Issue details for a single block."""
     block_type: str
     block_id: str
     path: str
@@ -55,7 +55,7 @@ class BlockIssue:
 
 @dataclass
 class DocumentReport:
-    """文档验证报告"""
+    """Validation report for a document."""
     file_path: str
     total_blocks: int = 0
     chart_count: int = 0
@@ -78,7 +78,7 @@ class DocumentReport:
 
 
 class IRValidator:
-    """IR 文档验证器"""
+    """IR document validator."""
 
     def __init__(
         self,
@@ -98,18 +98,18 @@ class IRValidator:
         file_path: str = "<unknown>",
     ) -> DocumentReport:
         """
-        验证整个文档。
+        Validate a whole document.
 
         Args:
-            document: IR 文档数据
-            file_path: 文件路径（用于报告）
+            document: IR document data
+            file_path: File path (for reporting)
 
         Returns:
-            DocumentReport: 验证报告
+            DocumentReport: Validation report
         """
         report = DocumentReport(file_path=file_path)
 
-        # 遍历所有章节
+        # Iterate over all chapters
         chapters = document.get("chapters", [])
         for chapter_idx, chapter in enumerate(chapters):
             if not isinstance(chapter, dict):
@@ -134,7 +134,7 @@ class IRValidator:
         chapter_id: str,
         report: DocumentReport,
     ):
-        """递归验证 blocks 列表"""
+        """Recursively validate a list of blocks."""
         if not isinstance(blocks, list):
             return
 
@@ -147,7 +147,7 @@ class IRValidator:
             block_type = block.get("type", "")
             block_id = block.get("widgetId") or block.get("id") or f"block-{idx}"
 
-            # 根据类型验证
+            # Validate by block type
             if block_type == "widget":
                 widget_type = (block.get("widgetType") or "").lower()
                 if "chart.js" in widget_type:
@@ -161,12 +161,12 @@ class IRValidator:
                 report.table_count += 1
                 self._validate_table(block, block_path, block_id, report)
 
-            # 递归处理嵌套 blocks
+            # Recursively process nested blocks
             nested_blocks = block.get("blocks")
             if isinstance(nested_blocks, list):
                 self._validate_blocks(nested_blocks, f"{block_path}.blocks", chapter_id, report)
 
-            # 处理 table rows 中的 blocks
+            # Process blocks inside table rows
             if block_type == "table":
                 rows = block.get("rows", [])
                 for row_idx, row in enumerate(rows):
@@ -182,7 +182,7 @@ class IRValidator:
                                     report,
                                 )
 
-            # 处理 list items 中的 blocks
+            # Process blocks inside list items
             if block_type == "list":
                 items = block.get("items", [])
                 for item_idx, item in enumerate(items):
@@ -201,7 +201,7 @@ class IRValidator:
         block_id: str,
         report: DocumentReport,
     ):
-        """验证图表"""
+        """Validate a chart block."""
         result = self.chart_validator.validate(block)
 
         if not result.is_valid or result.warnings:
@@ -222,7 +222,7 @@ class IRValidator:
         block_id: str,
         report: DocumentReport,
     ):
-        """验证表格"""
+        """Validate a table block."""
         result = self.table_validator.validate(block)
 
         if not result.is_valid or result.warnings or result.nested_cells_detected:
@@ -235,14 +235,14 @@ class IRValidator:
                 is_fixable=result.nested_cells_detected or result.has_critical_errors(),
             )
 
-            # 添加嵌套 cells 警告
+            # Add nested-cells warning
             if result.nested_cells_detected:
-                issue.warnings.insert(0, "检测到嵌套 cells 结构（LLM 常见错误）")
+                issue.warnings.insert(0, "Nested cells structure detected (common LLM error)")
 
-            # 添加空单元格信息
+            # Add empty-cell information
             if result.empty_cells_count > 0:
                 issue.warnings.append(
-                    f"空单元格数量: {result.empty_cells_count}/{result.total_cells_count}"
+                    f"Empty cells: {result.empty_cells_count}/{result.total_cells_count}"
                 )
 
             report.issues.append(issue)
@@ -254,18 +254,18 @@ class IRValidator:
         block_id: str,
         report: DocumentReport,
     ):
-        """验证词云"""
+        """Validate a word cloud block."""
         errors: List[str] = []
         warnings: List[str] = []
 
-        # 检查数据结构
+        # Check data structure
         data = block.get("data")
         props = block.get("props", {})
 
         words_found = False
         words_count = 0
 
-        # 检查各种可能的词云数据路径
+        # Check all possible word-cloud data paths
         data_paths = [
             ("data.words", data.get("words") if isinstance(data, dict) else None),
             ("data.items", data.get("items") if isinstance(data, dict) else None),
@@ -280,24 +280,24 @@ class IRValidator:
                 words_found = True
                 words_count = len(value)
 
-                # 验证词云项格式
-                for idx, item in enumerate(value[:5]):  # 只检查前5个
+                # Validate word-cloud item format
+                for idx, item in enumerate(value[:5]):  # Only check the first 5 items
                     if isinstance(item, dict):
                         word = item.get("word") or item.get("text") or item.get("label")
                         weight = item.get("weight") or item.get("value")
                         if not word:
-                            warnings.append(f"{path_name}[{idx}] 缺少 word/text/label 字段")
+                            warnings.append(f"{path_name}[{idx}] Missing word/text/label field")
                         if weight is None:
-                            warnings.append(f"{path_name}[{idx}] 缺少 weight/value 字段")
+                            warnings.append(f"{path_name}[{idx}] Missing weight/value field")
                     elif not isinstance(item, (str, list, tuple)):
-                        warnings.append(f"{path_name}[{idx}] 格式不正确")
+                        warnings.append(f"{path_name}[{idx}] Invalid format")
 
                 break
 
         if not words_found:
-            errors.append("词云数据缺失：未在 data.words, data.items, props.words 等路径找到有效数据")
+            errors.append("Word cloud data missing: no valid data found in paths like data.words, data.items, or props.words")
         elif words_count == 0:
-            warnings.append("词云数据为空")
+            warnings.append("Word cloud data is empty")
 
         if errors or warnings:
             issue = BlockIssue(
@@ -306,7 +306,7 @@ class IRValidator:
                 path=path,
                 errors=errors,
                 warnings=warnings,
-                is_fixable=False,  # 词云数据缺失通常无法自动修复
+                is_fixable=False,  # Missing word cloud data is usually not auto-fixable
             )
             report.issues.append(issue)
 
@@ -316,18 +316,18 @@ class IRValidator:
         report: DocumentReport,
     ) -> Tuple[Dict[str, Any], int]:
         """
-        修复文档中的问题。
+        Repair issues in a document.
 
         Args:
-            document: IR 文档数据
-            report: 验证报告
+            document: IR document data
+            report: Validation report
 
         Returns:
-            Tuple[Dict[str, Any], int]: (修复后的文档, 修复数量)
+            Tuple[Dict[str, Any], int]: (repaired document, number of fixes)
         """
         fixed_count = 0
 
-        # 遍历所有章节
+        # Iterate over all chapters
         chapters = document.get("chapters", [])
         for chapter in chapters:
             if not isinstance(chapter, dict):
@@ -343,7 +343,7 @@ class IRValidator:
         self,
         blocks: List[Any],
     ) -> Tuple[List[Any], int]:
-        """递归修复 blocks 列表"""
+        """Recursively repair a list of blocks."""
         if not isinstance(blocks, list):
             return blocks, 0
 
@@ -357,15 +357,15 @@ class IRValidator:
 
             block_type = block.get("type", "")
 
-            # 修复表格
+            # Repair table
             if block_type == "table":
                 result = self.table_repairer.repair(block)
                 if result.has_changes():
                     block = result.repaired_block
                     fixed_count += 1
-                    logger.info(f"修复表格: {result.changes}")
+                    logger.info(f"Table repaired: {result.changes}")
 
-            # 修复图表
+            # Repair chart
             elif block_type == "widget":
                 widget_type = (block.get("widgetType") or "").lower()
                 if "chart.js" in widget_type:
@@ -373,15 +373,15 @@ class IRValidator:
                     if result.has_changes():
                         block = result.repaired_block
                         fixed_count += 1
-                        logger.info(f"修复图表: {result.changes}")
+                        logger.info(f"Chart repaired: {result.changes}")
 
-            # 递归处理嵌套 blocks
+            # Recursively process nested blocks
             nested_blocks = block.get("blocks")
             if isinstance(nested_blocks, list):
                 block["blocks"], nested_fixed = self._repair_blocks(nested_blocks)
                 fixed_count += nested_fixed
 
-            # 处理 table rows 中的 blocks
+            # Process blocks inside table rows
             if block_type == "table":
                 rows = block.get("rows", [])
                 for row in rows:
@@ -393,7 +393,7 @@ class IRValidator:
                                 cell["blocks"], cell_fixed = self._repair_blocks(cell_blocks)
                                 fixed_count += cell_fixed
 
-            # 处理 list items 中的 blocks
+            # Process blocks inside list items
             if block_type == "list":
                 items = block.get("items", [])
                 for i, item in enumerate(items):
@@ -407,26 +407,26 @@ class IRValidator:
 
 
 def print_report(report: DocumentReport, verbose: bool = False):
-    """打印验证报告"""
+    """Print validation report."""
     print(f"\n{'=' * 60}")
-    print(f"文件: {report.file_path}")
+    print(f"File: {report.file_path}")
     print(f"{'=' * 60}")
 
-    print(f"\n📊 统计:")
-    print(f"  - 总 blocks: {report.total_blocks}")
-    print(f"  - 图表数量: {report.chart_count}")
-    print(f"  - 表格数量: {report.table_count}")
-    print(f"  - 词云数量: {report.wordcloud_count}")
+    print(f"\n📊 Statistics:")
+    print(f"  - Total blocks: {report.total_blocks}")
+    print(f"  - Charts: {report.chart_count}")
+    print(f"  - Tables: {report.table_count}")
+    print(f"  - Word clouds: {report.wordcloud_count}")
 
     if report.has_issues:
-        print(f"\n⚠️  发现 {len(report.issues)} 个问题:")
-        print(f"  - 错误: {report.error_count}")
-        print(f"  - 警告: {report.warning_count}")
+        print(f"\n⚠️  Found {len(report.issues)} issues:")
+        print(f"  - Errors: {report.error_count}")
+        print(f"  - Warnings: {report.warning_count}")
 
         if verbose:
             for issue in report.issues:
                 print(f"\n  [{issue.block_type}] {issue.block_id}")
-                print(f"    路径: {issue.path}")
+                print(f"    Path: {issue.path}")
                 if issue.errors:
                     for error in issue.errors:
                         print(f"    ❌ {error}")
@@ -434,12 +434,12 @@ def print_report(report: DocumentReport, verbose: bool = False):
                     for warning in issue.warnings:
                         print(f"    ⚠️  {warning}")
                 if issue.is_fixable:
-                    print(f"    🔧 可自动修复")
+                    print(f"    🔧 Auto-fixable")
     else:
-        print(f"\n✅ 未发现问题")
+        print(f"\n✅ No issues found")
 
     if report.fixed_count > 0:
-        print(f"\n🔧 已修复 {report.fixed_count} 个问题")
+        print(f"\n🔧 Fixed {report.fixed_count} issues")
 
 
 def validate_file(
@@ -448,68 +448,68 @@ def validate_file(
     fix: bool = False,
     verbose: bool = False,
 ) -> DocumentReport:
-    """验证单个文件"""
+    """Validate a single file."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             document = json.load(f)
     except json.JSONDecodeError as e:
-        logger.error(f"JSON 解析错误: {file_path}: {e}")
+        logger.error(f"JSON parse error: {file_path}: {e}")
         report = DocumentReport(file_path=str(file_path))
         report.issues.append(BlockIssue(
             block_type="document",
             block_id="root",
             path="",
-            errors=[f"JSON 解析错误: {e}"],
+            errors=[f"JSON parse error: {e}"],
         ))
         return report
     except Exception as e:
-        logger.error(f"读取文件错误: {file_path}: {e}")
+        logger.error(f"File read error: {file_path}: {e}")
         report = DocumentReport(file_path=str(file_path))
         report.issues.append(BlockIssue(
             block_type="document",
             block_id="root",
             path="",
-            errors=[f"读取文件错误: {e}"],
+            errors=[f"File read error: {e}"],
         ))
         return report
 
-    # 验证文档
+    # Validate document
     report = validator.validate_document(document, str(file_path))
 
-    # 修复问题
+    # Repair issues
     if fix and report.has_issues:
         fixable_issues = [i for i in report.issues if i.is_fixable]
         if fixable_issues:
-            logger.info(f"尝试修复 {len(fixable_issues)} 个问题...")
+            logger.info(f"Attempting to fix {len(fixable_issues)} issues...")
             document, fixed_count = validator.repair_document(document, report)
             report.fixed_count = fixed_count
 
             if fixed_count > 0:
-                # 保存修复后的文件
+                # Save repaired file
                 backup_path = file_path.with_suffix(f".bak{file_path.suffix}")
                 try:
-                    # 创建备份
+                    # Create backup
                     import shutil
                     shutil.copy(file_path, backup_path)
-                    logger.info(f"已创建备份: {backup_path}")
+                    logger.info(f"Backup created: {backup_path}")
 
-                    # 保存修复后的文件
+                    # Save repaired file
                     with open(file_path, "w", encoding="utf-8") as f:
                         json.dump(document, f, ensure_ascii=False, indent=2)
-                    logger.info(f"已保存修复后的文件: {file_path}")
+                    logger.info(f"Repaired file saved: {file_path}")
                 except Exception as e:
-                    logger.error(f"保存文件失败: {e}")
+                    logger.error(f"Failed to save file: {e}")
 
     return report
 
 
 def main():
-    """主函数"""
+    """Main function."""
     parser = argparse.ArgumentParser(
-        description="IR 文档验证工具",
+        description="IR document validation tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
+Examples:
   %(prog)s chapter-030-section-3-0.json
   %(prog)s *.json --fix
   %(prog)s ./output/ --recursive --fix --verbose
@@ -518,39 +518,39 @@ def main():
     parser.add_argument(
         "paths",
         nargs="+",
-        help="要验证的 JSON 文件或目录",
+        help="JSON files or directories to validate",
     )
     parser.add_argument(
         "-r", "--recursive",
         action="store_true",
-        help="递归处理目录",
+        help="Process directories recursively",
     )
     parser.add_argument(
         "-f", "--fix",
         action="store_true",
-        help="自动修复常见问题",
+        help="Auto-fix common issues",
     )
     parser.add_argument(
         "-v", "--verbose",
         action="store_true",
-        help="显示详细信息",
+        help="Show detailed output",
     )
     parser.add_argument(
         "--no-color",
         action="store_true",
-        help="禁用彩色输出",
+        help="Disable colored output",
     )
 
     args = parser.parse_args()
 
-    # 配置日志
+    # Configure logging
     logger.remove()
     if args.verbose:
         logger.add(sys.stderr, level="DEBUG")
     else:
         logger.add(sys.stderr, level="INFO")
 
-    # 收集文件
+    # Collect files
     files: List[Path] = []
     for path_str in args.paths:
         path = Path(path_str)
@@ -563,7 +563,7 @@ def main():
             else:
                 files.extend(path.glob("*.json"))
         else:
-            # 可能是 glob 模式
+            # Might be a glob pattern
             import glob
             matched = glob.glob(path_str)
             for m in matched:
@@ -572,15 +572,15 @@ def main():
                     files.append(mp)
 
     if not files:
-        print("未找到 JSON 文件")
+        print("No JSON files found")
         sys.exit(1)
 
-    print(f"找到 {len(files)} 个文件")
+    print(f"Found {len(files)} files")
 
-    # 创建验证器
+    # Create validator
     validator = IRValidator()
 
-    # 验证文件
+    # Validate files
     total_issues = 0
     total_fixed = 0
     reports: List[DocumentReport] = []
@@ -594,16 +594,16 @@ def main():
         if args.verbose or report.has_issues:
             print_report(report, args.verbose)
 
-    # 打印总结
+    # Print summary
     print(f"\n{'=' * 60}")
-    print("总结")
+    print("Summary")
     print(f"{'=' * 60}")
-    print(f"  - 文件数: {len(files)}")
-    print(f"  - 问题总数: {total_issues}")
+    print(f"  - Files: {len(files)}")
+    print(f"  - Total issues: {total_issues}")
     if args.fix:
-        print(f"  - 已修复: {total_fixed}")
+        print(f"  - Fixed: {total_fixed}")
 
-    # 返回适当的退出码
+    # Return proper exit code
     if total_issues > 0 and total_fixed < total_issues:
         sys.exit(1)
     sys.exit(0)

@@ -1,6 +1,6 @@
 """
-Report Engine状态管理
-定义报告生成过程中的简化状态数据结构
+Report Engine state management.
+Defines the simplified state data structures used during report generation.
 """
 
 from dataclasses import dataclass, field
@@ -11,14 +11,14 @@ from datetime import datetime
 
 @dataclass
 class ReportMetadata:
-    """简化的报告元数据"""
-    query: str = ""                      # 原始查询
-    template_used: str = ""              # 使用的模板名称
-    generation_time: float = 0.0         # 生成耗时（秒）
+    """Simplified report metadata."""
+    query: str = ""                      # Original query
+    template_used: str = ""              # Name of the template used
+    generation_time: float = 0.0         # Generation duration in seconds
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary form."""
         return {
             "query": self.query,
             "template_used": self.template_used,
@@ -30,57 +30,58 @@ class ReportMetadata:
 @dataclass 
 class ReportState:
     """
-    简化的报告状态管理。
+    Simplified report state management.
 
-    存储任务基本信息、输入、输出与元数据，供Agent与Flask层共享。
+    Stores basic task information, inputs, outputs, and metadata for
+    sharing between the Agent and Flask layers.
     """
-    # 基本信息
-    task_id: str = ""                    # 任务ID
-    query: str = ""                      # 原始查询
-    status: str = "pending"              # 状态: pending, processing, completed, failed
+    # Basic information
+    task_id: str = ""                    # Task ID
+    query: str = ""                      # Original query
+    status: str = "pending"              # Status: pending, processing, completed, failed
     
-    # 输入数据
-    query_engine_report: str = ""        # QueryEngine报告
-    media_engine_report: str = ""        # MediaEngine报告  
-    insight_engine_report: str = ""      # InsightEngine报告
-    forum_logs: str = ""                 # 论坛日志
+    # Input data
+    query_engine_report: str = ""        # QueryEngine report
+    media_engine_report: str = ""        # MediaEngine report  
+    insight_engine_report: str = ""      # InsightEngine report
+    forum_logs: str = ""                 # Forum logs
     
-    # 处理结果
-    selected_template: str = ""          # 选择的模板
-    html_content: str = ""               # 最终HTML内容
+    # Processing results
+    selected_template: str = ""          # Selected template
+    html_content: str = ""               # Final HTML content
     
-    # 元数据
+    # Metadata
     metadata: ReportMetadata = field(default_factory=ReportMetadata)
     
     def __post_init__(self):
-        """初始化后处理"""
+        """Run post-initialization setup."""
         if not self.task_id:
             self.task_id = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.metadata.query = self.query
     
     def mark_processing(self):
-        """标记为处理中，后台线程开始调度生成流程。"""
+        """Mark as processing when the background thread starts generation."""
         self.status = "processing"
     
     def mark_completed(self):
-        """标记为完成，同时意味着 `html_content` 已可用。"""
+        """Mark as completed, meaning `html_content` is now available."""
         self.status = "completed"
     
     def mark_failed(self, error_message: str = ""):
-        """标记为失败，并记录最后一次错误消息。"""
+        """Mark as failed and record the latest error message."""
         self.status = "failed"
         self.error_message = error_message
     
     def is_completed(self) -> bool:
-        """检查是否完成，包括状态为completed且存在HTML内容。"""
+        """Check whether processing is complete and HTML content exists."""
         return self.status == "completed" and bool(self.html_content)
     
     def get_progress(self) -> float:
-        """获取进度百分比，按照模板/内容两个阶段粗略估算。"""
+        """Get progress percentage using a rough two-stage estimate."""
         if self.status == "completed":
             return 100.0
         elif self.status == "processing":
-            # 简单的进度计算
+            # Simple progress calculation
             progress = 0.0
             if self.selected_template:
                 progress += 30.0
@@ -91,7 +92,7 @@ class ReportState:
             return 0.0
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式，方便序列化给前端。"""
+        """Convert to dictionary form for frontend serialization."""
         return {
             "task_id": self.task_id,
             "query": self.query,
@@ -104,25 +105,25 @@ class ReportState:
         }
     
     def save_to_file(self, file_path: str):
-        """保存状态到文件，排除HTML正文以控制体积。"""
+        """Save state to a file, excluding the HTML body to keep size down."""
         try:
             state_data = self.to_dict()
-            # 不保存完整的HTML内容到状态文件（太大）
+            # Do not save the full HTML content to the state file because it is too large.
             state_data.pop("html_content", None)
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(state_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"保存状态文件失败: {str(e)}")
+            print(f"Failed to save state file: {str(e)}")
     
     @classmethod
     def load_from_file(cls, file_path: str) -> Optional["ReportState"]:
-        """从文件加载状态，仅恢复关键字段便于调试。"""
+        """Load state from a file and restore only key fields for debugging."""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # 创建ReportState对象
+            # Create a ReportState object
             state = cls(
                 task_id=data.get("task_id", ""),
                 query=data.get("query", ""),
@@ -130,7 +131,7 @@ class ReportState:
                 selected_template=data.get("selected_template", "")
             )
             
-            # 设置元数据
+            # Set metadata
             metadata_data = data.get("metadata", {})
             state.metadata.template_used = metadata_data.get("template_used", "")
             state.metadata.generation_time = metadata_data.get("generation_time", 0.0)
@@ -138,5 +139,5 @@ class ReportState:
             return state
             
         except Exception as e:
-            print(f"加载状态文件失败: {str(e)}")
+            print(f"Failed to load state file: {str(e)}")
             return None
