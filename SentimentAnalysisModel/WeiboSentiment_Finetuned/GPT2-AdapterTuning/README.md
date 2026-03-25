@@ -1,34 +1,34 @@
-# 微博情感识别模型-GPT2-Adapter微调
+# Weibo Sentiment Recognition Model - GPT2-Adapter Fine-tuning
 
-## 项目说明
-这是一个基于GPT2的微博情感二分类模型，采用Adapter微调技术。通过Adapter微调，只需训练少量参数就可以让模型适应情感分析任务，大幅降低计算资源需求和模型体积。
+## Project Description
+This is a binary sentiment classification model for Weibo based on GPT2, using Adapter fine-tuning technique. Through Adapter fine-tuning, only a small number of parameters need to be trained to adapt the model to the sentiment analysis task, greatly reducing computational resource requirements and model size.
 
-## 数据集
-使用微博情感数据集(weibo_senti_100k)，包含约10万条带情感标注的微博内容，正负向评论各约5万条。数据集标签：
-- 标签0：负面情感
-- 标签1：正面情感
+## Dataset
+Uses the Weibo sentiment dataset (weibo_senti_100k), which contains approximately 100,000 Weibo content with sentiment annotations, with about 50,000 positive and 50,000 negative comments. Dataset labels:
+- Label 0: Negative sentiment
+- Label 1: Positive sentiment
 
-## 文件结构
+## File Structure
 ```
 GPT2-Adpter-tuning/
-├── adapter.py              # Adapter层的实现
-├── gpt2_adapter.py         # 针对GPT2模型的Adapter实现
-├── train.py                # 训练脚本
-├── predict.py              # 简化版预测脚本（交互式使用）
-├── models/                 # 本地存储的预训练模型
-│   └── gpt2-chinese/       # 中文GPT2模型及配置
-├── dataset/                # 数据集目录
-│   └── weibo_senti_100k.csv  # 微博情感数据集
-└── best_weibo_sentiment_model.pth  # 训练好的最佳模型
+├── adapter.py              # Adapter layer implementation
+├── gpt2_adapter.py         # Adapter implementation for GPT2 model
+├── train.py                # Training script
+├── predict.py              # Simplified prediction script (interactive use)
+├── models/                 # Directory for storing local pre-trained models
+│   └── gpt2-chinese/       # Chinese GPT2 model and configuration
+├── dataset/                # Dataset directory
+│   └── weibo_senti_100k.csv  # Weibo sentiment dataset
+└── best_weibo_sentiment_model.pth  # Trained best model
 ```
 
-## 技术特点
+## Technical Features
 
-1. **参数高效微调**：相比全参数微调，仅训练约3%的参数
-2. **模型性能保持**：在仅训练少量参数的情况下，保持良好的分类性能
-3. **适用于资源受限环境**：模型体积小，推理速度快
+1. **Parameter-Efficient Fine-tuning**: Compared to full parameter fine-tuning, only about 3% of parameters are trained
+2. **Model Performance Preservation**: Maintains good classification performance while training only a small number of parameters
+3. **Suitable for Resource-Constrained Environments**: Small model size and fast inference speed
 
-## 环境依赖
+## Environment Dependencies
 - Python 3.6+
 - PyTorch
 - Transformers
@@ -37,57 +37,57 @@ GPT2-Adpter-tuning/
 - Scikit-learn
 - Tqdm
 
-## 使用方法
+## Usage
 
-### 训练模型
+### Train Model
 ```bash
 python train.py
 ```
-训练过程会自动：
-- 下载并本地保存中文GPT2预训练模型
-- 加载微博情感数据集
-- 训练模型并保存最佳模型
+The training process will automatically:
+- Download and save the Chinese GPT2 pre-trained model locally
+- Load the Weibo sentiment dataset
+- Train the model and save the best model
 
-### 情感分析预测
+### Sentiment Analysis Prediction
 ```bash
 python predict.py
 ```
-运行后将进入交互模式：
-- 在控制台输入要分析的微博文本
-- 系统会返回情感分析结果（正面/负面）和置信度
-- 输入'q'退出程序
+After running, you will enter interactive mode:
+- Enter the Weibo text to be analyzed in the console
+- The system will return sentiment analysis results (positive/negative) and confidence score
+- Enter 'q' to exit the program
 
-## 模型结构
-- 基础模型：`uer/gpt2-chinese-cluecorpussmall`中文预训练模型
-- 模型本地保存路径：`./models/gpt2-chinese/`
-- 通过在每个GPT2Block后添加Adapter层进行微调
-- 冻结原始GPT2参数，仅训练分类器和Adapter层参数
+## Model Structure
+- Base Model: `uer/gpt2-chinese-cluecorpussmall` Chinese pre-trained model
+- Local Model Path: `./models/gpt2-chinese/`
+- Fine-tune by adding Adapter layers after each GPT2Block
+- Freeze original GPT2 parameters, only train classifier and Adapter layer parameters
 
-## Adapter技术
-Adapter是一种参数高效的微调技术，通过在Transformer层中插入小型的瓶颈层，实现用少量参数适应下游任务的目的。主要特点：
+## Adapter Technology
+Adapter is a parameter-efficient fine-tuning technique that enables adaptation to downstream tasks with only a limited number of parameters by inserting small bottleneck layers into Transformer layers. Main features:
 
-1. **参数高效**：相比全参数微调，Adapter只需训练很小一部分参数
-2. **防止遗忘**：保持原始预训练模型的参数不变，避免灾难性遗忘
-3. **适应多任务**：可以为不同任务训练不同的Adapter，共享同一个基础模型
+1. **Parameter Efficiency**: Compared to full parameter fine-tuning, Adapter only needs to train a small fraction of parameters
+2. **Forgetting Prevention**: Keeps the original pre-trained model parameters unchanged, avoiding catastrophic forgetting
+3. **Multi-task Adaptation**: Different Adapters can be trained for different tasks, sharing the same base model
 
-在本项目中，我们在每个GPT2Block后添加了一个Adapter层，Adapter的隐藏层大小为64，远小于原始模型的隐藏层大小（通常为768或1024）。
+In this project, we added an Adapter layer after each GPT2Block. The hidden layer size of the Adapter is 64, much smaller than the original model's hidden layer size (typically 768 or 1024).
 
-## 使用示例
+## Usage Example
 ```
-使用设备: cuda
-加载模型: best_weibo_sentiment_model.pth
+Using device: cuda
+Loading model: best_weibo_sentiment_model.pth
 
-============= 微博情感分析 =============
-输入微博内容进行分析 (输入 'q' 退出):
+============= Weibo Sentiment Analysis =============
+Enter Weibo content for analysis (input 'q' to exit):
 
-请输入微博内容: 这部电影真是太好看了，我非常喜欢！
-预测结果: 正面情感 (置信度: 0.9876)
+Please enter Weibo content: This movie is so good, I really love it!
+Prediction result: Positive sentiment (Confidence: 0.9876)
 
-请输入微博内容: 服务态度差，价格还贵，一点都不推荐
-预测结果: 负面情感 (置信度: 0.9742)
+Please enter Weibo content: Poor service, expensive prices, not recommended at all
+Prediction result: Negative sentiment (Confidence: 0.9742)
 ```
 
-## 注意事项
-- 预测脚本使用本地模型路径，不需要在线下载模型
-- 确保`models/gpt2-chinese/`目录包含从训练过程中保存的模型文件
-- 首次运行train.py时会自动下载并保存模型，请确保网络连接 
+## Notes
+- The prediction script uses local model paths and does not need to download models online
+- Ensure the `models/gpt2-chinese/` directory contains model files saved from the training process
+- When running train.py for the first time, it will automatically download and save the model, please ensure a stable network connection 
