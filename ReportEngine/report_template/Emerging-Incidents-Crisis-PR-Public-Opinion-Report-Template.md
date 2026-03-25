@@ -1,0 +1,27 @@
+### **Emerging Incidents & Crisis PR Public Opinion Report Template**
+
+- **1.0 Report Summary**
+  - 1.1 Event Classification
+  - 1.2 Core Conclusions
+  - 1.3 Key Recommendations
+- **2.0 Event Origin & Development**
+  - 2.1 Event Background & First Occurrence
+  - 2.2 Key Development Timeline
+  - 2.3 Current Situation
+- **3.0 Public Opinion Communication Analysis**
+  - 3.1 Communication Volume Trends
+  - 3.2 Core Communication Channels
+  - 3.3 Key Transmission Nodes (KOL/Media)
+- **4.0 Core Focus & Public Attitudes in the Public Opinion Arena**
+  - 4.1 Public Opinion Focus Analysis
+  - 4.2 Netizen Sentiment Distribution
+  - 4.3 Main Opinion Excerpts
+- **5.0 Risk Assessment**
+  - 5.1 Short-term Risks
+  - 5.2 Long-term Risks
+  - 5.3 Secondary/Derivative Risks
+- **6.0 Response Strategies & Handling Recommendations**
+  - 6.1 Golden Response Period Recommendations
+  - 6.2 Talking Points & Statement Recommendations
+  - 6.3 Internal & External Communication Strategies
+  - 6.4 Follow-up Action Planning

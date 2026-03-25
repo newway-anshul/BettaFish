@@ -1,0 +1,30 @@
+### **Corporate Brand Reputation Analysis Report Template**
+
+- **1.0 Executive Summary & Key Findings**
+  - 1.1 Brand Reputation Overview
+  - 1.2 Key Metrics Performance
+  - 1.3 Main Conclusions & Strategic Insights
+- **2.0 Brand Volume & Influence Analysis**
+  - 2.1 Overall Volume Trends
+  - 2.2 Channel Volume Distribution
+  - 2.3 Regional Volume Distribution
+- **3.0 Key Events Review for This Period**
+  - 3.1 Key Marketing Campaign Timeline
+  - 3.2 Major Public Opinion Events Timeline
+- **4.0 Brand Image & User Perception**
+  - 4.1 Sentiment Analysis
+  - 4.2 Brand Association Word Cloud
+  - 4.3 Core Topic Analysis
+- **5.0 User Profile Analysis**
+  - 5.1 Demographic Attributes
+  - 5.2 Interest Tags
+  - 5.3 Core Media Consumption Habits
+- **6.0 Reputation Risk & Opportunity Insights**
+  - 6.1 Major Negative Topic Tracking
+  - 6.2 Potential Risk Warnings
+  - 6.3 Positive Opportunity Mining
+- **7.0 Conclusions & Strategic Recommendations**
+  - 7.1 Brand SWOT Analysis Summary
+  - 7.2 Brand Communication Optimization Recommendations
+  - 7.3 Product & Service Improvement Recommendations
+  - 7.4 Next Period Monitoring Focus
