@@ -1,8 +1,9 @@
 """
-Report Engine核心工具集合。
+Report Engine core utility collection.
 
-该包封装了模板切片、章节存储与章节装订三大基础能力，
-所有上层节点都会复用这些工具保证结构一致。
+This package encapsulates three core capabilities: template slicing,
+chapter storage, and chapter stitching. All upper-level nodes reuse
+these utilities to ensure structural consistency.
 """
 
 from .template_parser import TemplateSection, parse_template_sections
