@@ -1,7 +1,8 @@
 """
-Report Engine提示词模块。
+Report Engine Prompt Module.
 
-集中导出各阶段系统提示词与辅助函数，其他模块可直接from prompts import。
+Centralizes the export of system prompts and helper functions for each stage;
+other modules can directly import from prompts.
 """
 
 from .prompts import (
