@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-SVM情感分析模型训练脚本
+SVM sentiment analysis training script.
 """
 import argparse
 import pandas as pd
@@ -14,25 +14,25 @@ from utils import stopwords
 
 
 class SVMModel(BaseModel):
-    """SVM情感分析模型"""
+    """SVM sentiment analysis model."""
     
     def __init__(self):
         super().__init__("SVM")
         
     def train(self, train_data: List[Tuple[str, int]], **kwargs) -> None:
-        """训练SVM模型
+        """Train the SVM model.
         
         Args:
-            train_data: 训练数据，格式为[(text, label), ...]
-            **kwargs: 其他参数，支持kernel, C等SVM参数
+            train_data: Training data in the form [(text, label), ...]
+            **kwargs: Additional parameters such as kernel and C.
         """
-        print(f"开始训练 {self.model_name} 模型...")
+        print(f"Starting training for {self.model_name} model...")
         
-        # 准备数据
+        # Prepare data.
         df_train = pd.DataFrame(train_data, columns=["words", "label"])
         
-        # 特征编码（TF-IDF模型）
-        print("构建TF-IDF特征...")
+        # Feature encoding (TF-IDF).
+        print("Building TF-IDF features...")
         self.vectorizer = TfidfVectorizer(
             token_pattern=r'\[?\w+\]?', 
             stop_words=stopwords
@@ -41,57 +41,57 @@ class SVMModel(BaseModel):
         X_train = self.vectorizer.fit_transform(df_train["words"])
         y_train = df_train["label"]
         
-        print(f"特征维度: {X_train.shape[1]}")
+        print(f"Feature dimension: {X_train.shape[1]}")
         
-        # 获取SVM参数
+        # Read SVM parameters.
         kernel = kwargs.get('kernel', 'rbf')
         C = kwargs.get('C', 1.0)
         gamma = kwargs.get('gamma', 'scale')
         
-        # 训练模型
-        print(f"训练SVM分类器 (kernel={kernel}, C={C}, gamma={gamma})...")
+        # Train model.
+        print(f"Training SVM classifier (kernel={kernel}, C={C}, gamma={gamma})...")
         self.model = svm.SVC(kernel=kernel, C=C, gamma=gamma, probability=True)
         self.model.fit(X_train, y_train)
         
         self.is_trained = True
-        print(f"{self.model_name} 模型训练完成！")
+        print(f"{self.model_name} model training completed.")
         
     def predict(self, texts: List[str]) -> List[int]:
-        """预测文本情感
+        """Predict sentiment labels for texts.
         
         Args:
-            texts: 待预测文本列表
+            texts: List of input texts.
             
         Returns:
-            预测结果列表
+            List of predictions.
         """
         if not self.is_trained:
-            raise ValueError(f"模型 {self.model_name} 尚未训练，请先调用train方法")
+            raise ValueError(f"Model {self.model_name} is not trained. Please call train() first.")
             
-        # 特征转换
+        # Feature transform.
         X = self.vectorizer.transform(texts)
         
-        # 预测
+        # Predict.
         predictions = self.model.predict(X)
         
         return predictions.tolist()
     
     def predict_single(self, text: str) -> Tuple[int, float]:
-        """预测单条文本的情感
+        """Predict sentiment for a single text.
         
         Args:
-            text: 待预测文本
+            text: Input text.
             
         Returns:
             (predicted_label, confidence)
         """
         if not self.is_trained:
-            raise ValueError(f"模型 {self.model_name} 尚未训练，请先调用train方法")
+            raise ValueError(f"Model {self.model_name} is not trained. Please call train() first.")
             
-        # 特征转换
+        # Feature transform.
         X = self.vectorizer.transform([text])
         
-        # 预测
+        # Predict.
         prediction = self.model.predict(X)[0]
         probabilities = self.model.predict_proba(X)[0]
         confidence = max(probabilities)
@@ -100,65 +100,65 @@ class SVMModel(BaseModel):
 
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='SVM情感分析模型训练')
+    """Main function."""
+    parser = argparse.ArgumentParser(description='SVM sentiment analysis training')
     parser.add_argument('--train_path', type=str, default='./data/weibo2018/train.txt',
-                        help='训练数据路径')
+                        help='Training data path')
     parser.add_argument('--test_path', type=str, default='./data/weibo2018/test.txt',
-                        help='测试数据路径')
+                        help='Test data path')
     parser.add_argument('--model_path', type=str, default='./model/svm_model.pkl',
-                        help='模型保存路径')
+                        help='Model save path')
     parser.add_argument('--kernel', type=str, default='rbf', choices=['linear', 'poly', 'rbf', 'sigmoid'],
-                        help='SVM核函数类型')
+                        help='SVM kernel type')
     parser.add_argument('--C', type=float, default=1.0,
-                        help='SVM正则化参数C')
+                        help='SVM regularization parameter C')
     parser.add_argument('--gamma', type=str, default='scale',
-                        help='SVM核函数参数gamma')
+                        help='SVM kernel parameter gamma')
     parser.add_argument('--eval_only', action='store_true',
-                        help='仅评估已有模型，不进行训练')
+                        help='Evaluate an existing model only, without training')
     
     args = parser.parse_args()
     
-    # 创建模型
+    # Create model.
     model = SVMModel()
     
     if args.eval_only:
-        # 仅评估模式
-        print("评估模式：加载已有模型进行评估")
+        # Evaluation-only mode.
+        print("Evaluation mode: load an existing model for evaluation")
         model.load_model(args.model_path)
         
-        # 加载测试数据
+        # Load test data.
         _, test_data = BaseModel.load_data(args.train_path, args.test_path)
         
-        # 评估模型
+        # Evaluate model.
         model.evaluate(test_data)
     else:
-        # 训练模式
-        # 加载数据
+        # Training mode.
+        # Load data.
         train_data, test_data = BaseModel.load_data(args.train_path, args.test_path)
         
-        # 训练模型
+        # Train model.
         model.train(train_data, kernel=args.kernel, C=args.C, gamma=args.gamma)
         
-        # 评估模型
+        # Evaluate model.
         model.evaluate(test_data)
         
-        # 保存模型
+        # Save model.
         model.save_model(args.model_path)
         
-        # 示例预测
-        print("\n示例预测:")
+        # Sample predictions.
+        print("\nSample predictions:")
         test_texts = [
-            "今天天气真好，心情很棒",
-            "这部电影太无聊了，浪费时间",
-            "哈哈哈，太有趣了"
+            "The weather is great today, I feel awesome.",
+            "This movie was so boring, what a waste of time.",
+            "Hahaha, this is really fun."
         ]
         
         for text in test_texts:
             pred, conf = model.predict_single(text)
-            sentiment = "正面" if pred == 1 else "负面"
-            print(f"文本: {text}")
-            print(f"预测: {sentiment} (置信度: {conf:.4f})")
+            sentiment = "Positive" if pred == 1 else "Negative"
+            print(f"Text: {text}")
+            print(f"Prediction: {sentiment} (confidence: {conf:.4f})")
             print()
 
 
